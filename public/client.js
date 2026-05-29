@@ -36,16 +36,37 @@ function renderStatus(s) {
 }
 
 function renderLog(s) {
-  $('log').innerHTML = s.log.slice(-40).reverse()
-    .map((l) => '<li>' + l + '</li>').join('');
+  // Usar textContent (no innerHTML) para que ningún texto del log se interprete
+  // como HTML (evita inyección si un mensaje llegara a contener etiquetas).
+  const ul = $('log');
+  ul.innerHTML = '';
+  for (const l of s.log.slice(-40).reverse()) {
+    const li = document.createElement('li');
+    li.textContent = l;
+    ul.appendChild(li);
+  }
 }
+
+// Id de la ficha que este cliente está arrastrando ahora mismo (o null). Sirve
+// para no destruir su elemento cuando llega un estado de otro jugador a mitad
+// del arrastre (dos personas pueden arrastrar a la vez).
+let draggingId = null;
 
 function renderTokens(s) {
   const layer = $('tokenLayer');
+  // Si estamos arrastrando una ficha, conserva su elemento (con su gesto/captura
+  // en curso) en vez de recrearlo cuando llega un estado de otro jugador.
+  let kept = null;
+  if (draggingId != null) {
+    kept = layer.querySelector('[data-id="' + CSS.escape(draggingId) + '"]');
+    if (kept) layer.removeChild(kept);
+  }
   layer.innerHTML = '';
   for (const t of s.tokens) {
+    if (kept && t.id === draggingId) { layer.appendChild(kept); continue; }
     const el = document.createElement('div');
     el.className = 'token ' + t.type;
+    el.dataset.id = t.id;
     el.textContent = t.label || '';
     el.style.left = t.x + '%';
     el.style.top = t.y + '%';
@@ -58,10 +79,19 @@ function makeDraggable(el, id) {
   el.onpointerdown = (e) => {
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
-    const wrap = $('boardWrap').getBoundingClientRect();
+    draggingId = id;
+    // Lee el rect del tablero en cada evento: si el layout se reajusta a mitad
+    // del arrastre (el log crece, scroll, etc.) las coordenadas siguen exactas.
+    const rect = () => $('boardWrap').getBoundingClientRect();
+    const pct = (ev) => {
+      const w = rect();
+      return {
+        x: ((ev.clientX - w.left) / w.width) * 100,
+        y: ((ev.clientY - w.top) / w.height) * 100,
+      };
+    };
     const move = (ev) => {
-      const x = ((ev.clientX - wrap.left) / wrap.width) * 100;
-      const y = ((ev.clientY - wrap.top) / wrap.height) * 100;
+      const { x, y } = pct(ev);
       el.style.left = x + '%';
       el.style.top = y + '%';
     };
@@ -69,8 +99,8 @@ function makeDraggable(el, id) {
       el.releasePointerCapture(e.pointerId);
       el.onpointermove = null;
       el.onpointerup = null;
-      const x = ((ev.clientX - wrap.left) / wrap.width) * 100;
-      const y = ((ev.clientY - wrap.top) / wrap.height) * 100;
+      draggingId = null;
+      const { x, y } = pct(ev);
       socket.emit('moveToken', { id, x, y });
     };
     el.onpointermove = move;
