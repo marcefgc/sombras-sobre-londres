@@ -21,7 +21,7 @@ function createServer() {
       const json = JSON.stringify(G.viewFor(state, p.role));
       if (lastSent.get(id) === json) continue;
       lastSent.set(id, json);
-      io.to(id).emit('state', json && JSON.parse(json));
+      io.to(id).emit('state', JSON.parse(json));
     }
   }
   // Coalesce multiple synchronous mutations (e.g. addToken + moveToken) into a
@@ -51,6 +51,9 @@ function createServer() {
       sendStates();
     });
 
+    // Token, phase, clue/arrest and reset events are intentionally open to any
+    // connected player (cooperative local-network trust model). Only the three
+    // Jack-private events below are role-guarded.
     socket.on('addToken', (token) => { G.upsertToken(state, token); sendStates(); });
     socket.on('moveToken', ({ id, x, y }) => { G.moveToken(state, id, x, y); sendStates(); });
     socket.on('removeToken', ({ id }) => { G.removeToken(state, id); sendStates(); });
