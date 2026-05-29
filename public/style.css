@@ -1,4 +1,7 @@
 * { box-sizing: border-box; }
+/* El atributo [hidden] debe ganarle a reglas de display de mayor especificidad
+   (p. ej. #lobby { display:flex }); sin esto el lobby no se oculta al entrar. */
+[hidden] { display: none !important; }
 body { margin: 0; font-family: Georgia, 'Times New Roman', serif;
        background: #1a1714; color: #e8e2d6; }
 h1 { font-weight: normal; letter-spacing: 2px; }
