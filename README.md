@@ -22,7 +22,7 @@ Versión web para jugar *Letters from Whitechapel* entre amigos en la misma WiFi
 2. Cada noche, Jack pulsa **Preparar crimen**, luego escribe el número del crimen y **Cometer crimen** (queda como "paso 0" de su ruta y empieza la caza).
 3. Jack registra cada movimiento escribiendo el número y pulsando **Mover** / **Carruaje** / **Callejón** (los dos últimos descuentan sus contadores).
 4. Los **detectives** arrastran sus fichas por el mapa, escriben un número y pulsan **Buscar pista** (el servidor responde SÍ/no según la ruta real de Jack) o **¡Arresto!** (si aciertan el círculo actual de Jack, ganan).
-5. Tras la noche 4, si Jack nunca fue atrapado, gana Jack.
+5. Al final de la noche, Jack pulsa **Llegué a mi guarida**: el servidor verifica que su posición actual sea la guarida; si lo es, empieza la siguiente noche (y si era la noche 4, **gana Jack**). Si Jack agota sus 15 turnos sin llegar a casa, cualquier jugador pulsa **Amanecer** para declarar la **victoria policial**.
 
 ## Desarrollo
 - Tests: `npm test`
