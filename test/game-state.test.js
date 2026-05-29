@@ -22,3 +22,25 @@ test('addPlayer y removePlayer', () => {
   G.removePlayer(s, 'sock1');
   assert.strictEqual(s.players['sock1'], undefined);
 });
+
+test('upsertToken agrega y actualiza por id', () => {
+  const s = G.createGame();
+  G.upsertToken(s, { id: 'det1', type: 'detective', x: 10, y: 20, label: '1' });
+  assert.strictEqual(s.tokens.length, 1);
+  G.upsertToken(s, { id: 'det1', type: 'detective', x: 30, y: 40, label: '1' });
+  assert.strictEqual(s.tokens.length, 1);
+  assert.strictEqual(s.tokens[0].x, 30);
+});
+test('moveToken cambia coordenadas', () => {
+  const s = G.createGame();
+  G.upsertToken(s, { id: 'crime', type: 'crime', x: 0, y: 0, label: '' });
+  G.moveToken(s, 'crime', 55, 66);
+  assert.strictEqual(s.tokens[0].x, 55);
+  assert.strictEqual(s.tokens[0].y, 66);
+});
+test('removeToken elimina por id', () => {
+  const s = G.createGame();
+  G.upsertToken(s, { id: 'clue1', type: 'clue', x: 1, y: 2, label: '' });
+  G.removeToken(s, 'clue1');
+  assert.strictEqual(s.tokens.length, 0);
+});
