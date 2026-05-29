@@ -87,3 +87,31 @@ test('checkArrest solo es verdadero en la posición actual', () => {
   assert.strictEqual(G.checkArrest(s, 8), true);
   assert.strictEqual(G.checkArrest(s, 7), false);
 });
+
+test('startCrimePrep cambia la fase', () => {
+  const s = G.createGame(); G.startCrimePrep(s); assert.strictEqual(s.game.phase, 'crime-prep');
+});
+test('startCrime fija paso 0 con el círculo del crimen y pasa a caza', () => {
+  const s = G.createGame(); G.startCrime(s, 77);
+  assert.strictEqual(s.game.phase, 'hunt');
+  assert.deepStrictEqual(s.jack.path[0], { step: 0, circle: 77, special: null });
+  assert.strictEqual(s.game.jackMoves, 0);
+});
+test('nextNight reinicia ruta, movimientos y contadores y sube la noche; la guarida NO se reinicia', () => {
+  const s = G.createGame();
+  G.setLair(s, 5);
+  G.startCrime(s, 77); G.logJackStep(s, 78, 'carriage');
+  G.nextNight(s);
+  assert.strictEqual(s.game.night, 2);
+  assert.strictEqual(s.game.phase, 'crime-prep');
+  assert.strictEqual(s.game.jackMoves, 0);
+  assert.deepStrictEqual(s.jack.path, []);
+  assert.strictEqual(s.jack.carriages, 2);
+  assert.strictEqual(s.jack.alleys, 3);
+  assert.strictEqual(s.jack.lair, 5);
+});
+test('endGame fija fase ended y registra ganador', () => {
+  const s = G.createGame(); G.endGame(s, 'Policía');
+  assert.strictEqual(s.game.phase, 'ended');
+  assert.ok(s.log.some((l) => l.includes('Policía')));
+});

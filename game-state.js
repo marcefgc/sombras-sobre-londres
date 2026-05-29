@@ -43,4 +43,27 @@ function getJackCircle(state) {
 function checkClue(state, circle) { return state.jack.path.some((p) => p.circle === circle); }
 function checkArrest(state, circle) { return getJackCircle(state) === circle; }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest };
+function startCrimePrep(state) { state.game.phase = 'crime-prep'; }
+function startCrime(state, circle) {
+  state.game.phase = 'hunt';
+  state.game.jackMoves = 0;
+  state.game.turn = 'jack';
+  state.jack.path = [{ step: 0, circle, special: null }];
+  state.log.push('Comienza la caza: crimen en ' + circle);
+}
+function nextNight(state) {
+  state.game.night += 1;
+  state.game.phase = 'crime-prep';
+  state.game.jackMoves = 0;
+  state.game.turn = 'jack';
+  state.jack.path = [];
+  state.jack.carriages = CARRIAGES_PER_NIGHT;
+  state.jack.alleys = ALLEYS_PER_NIGHT;
+  state.log.push('Noche ' + state.game.night);
+}
+function endGame(state, winner) {
+  state.game.phase = 'ended';
+  state.log.push('Fin de la partida. Ganador: ' + winner);
+}
+
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, startCrimePrep, startCrime, nextNight, endGame };
