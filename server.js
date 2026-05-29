@@ -11,10 +11,29 @@ function createServer() {
   const io = new Server(server);
   const state = G.createGame();
 
-  function sendStates() {
+  // Last serialized view sent to each client, used to suppress redundant
+  // broadcasts. Clients commonly poll with `socket.once('state')`, so emitting
+  // an unchanged state would consume a poll and let the next real update slip
+  // through the gap between `once` re-registrations. Deduping avoids that race.
+  const lastSent = new Map();
+  function emitStates() {
     for (const [id, p] of Object.entries(state.players)) {
-      io.to(id).emit('state', G.viewFor(state, p.role));
+      const json = JSON.stringify(G.viewFor(state, p.role));
+      if (lastSent.get(id) === json) continue;
+      lastSent.set(id, json);
+      io.to(id).emit('state', json && JSON.parse(json));
     }
+  }
+  // Coalesce multiple synchronous mutations (e.g. addToken + moveToken) into a
+  // single state broadcast carrying the final state.
+  let scheduled = false;
+  function sendStates() {
+    if (scheduled) return;
+    scheduled = true;
+    setImmediate(() => {
+      scheduled = false;
+      emitStates();
+    });
   }
 
   io.on('connection', (socket) => {
@@ -26,7 +45,9 @@ function createServer() {
 
     socket.on('join', ({ name, role }) => {
       G.addPlayer(state, socket.id, name, role);
-      socket.emit('state', G.viewFor(state, role));
+      const json = JSON.stringify(G.viewFor(state, role));
+      lastSent.set(socket.id, json);
+      socket.emit('state', JSON.parse(json));
       sendStates();
     });
 
@@ -75,6 +96,7 @@ function createServer() {
 
     socket.on('disconnect', () => {
       G.removePlayer(state, socket.id);
+      lastSent.delete(socket.id);
       sendStates();
     });
   });
