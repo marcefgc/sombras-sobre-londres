@@ -115,3 +115,32 @@ test('endGame fija fase ended y registra ganador', () => {
   assert.strictEqual(s.game.phase, 'ended');
   assert.ok(s.log.some((l) => l.includes('Policía')));
 });
+
+test('viewFor para Jack incluye guarida y ruta', () => {
+  const s = G.createGame(); G.setLair(s, 42); G.logJackStep(s, 7, null);
+  const v = G.viewFor(s, 'jack');
+  assert.strictEqual(v.jack.lair, 42);
+  assert.strictEqual(v.jack.path.length, 1);
+});
+test('viewFor para detective NUNCA expone guarida ni ruta', () => {
+  const s = G.createGame(); G.setLair(s, 42); G.logJackStep(s, 7, null);
+  const v = G.viewFor(s, 'det1');
+  assert.strictEqual(v.jack.lair, undefined);
+  assert.strictEqual(v.jack.path, undefined);
+  assert.strictEqual(v.jack.carriages, 2);
+  assert.strictEqual(v.jack.alleys, 3);
+});
+test('viewFor para espectador tampoco expone info privada', () => {
+  const s = G.createGame(); G.setLair(s, 42);
+  const v = G.viewFor(s, 'spectator');
+  assert.strictEqual(v.jack.lair, undefined);
+  assert.strictEqual(v.jack.path, undefined);
+});
+test('viewFor incluye estado público compartido', () => {
+  const s = G.createGame();
+  G.upsertToken(s, { id: 'd1', type: 'detective', x: 1, y: 2, label: '1' });
+  const v = G.viewFor(s, 'det1');
+  assert.strictEqual(v.game.night, 1);
+  assert.strictEqual(v.tokens.length, 1);
+  assert.ok(Array.isArray(v.log));
+});

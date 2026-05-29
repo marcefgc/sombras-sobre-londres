@@ -66,4 +66,11 @@ function endGame(state, winner) {
   state.log.push('Fin de la partida. Ganador: ' + winner);
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, startCrimePrep, startCrime, nextNight, endGame };
+function viewFor(state, role) {
+  const view = { game: state.game, players: state.players, tokens: state.tokens, log: state.log };
+  if (role === 'jack') view.jack = state.jack;
+  else view.jack = { carriages: state.jack.carriages, alleys: state.jack.alleys };
+  return view;
+}
+
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, startCrimePrep, startCrime, nextNight, endGame, viewFor };
