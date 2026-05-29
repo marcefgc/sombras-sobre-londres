@@ -24,4 +24,17 @@ function moveToken(state, id, x, y) {
 }
 function removeToken(state, id) { state.tokens = state.tokens.filter((t) => t.id !== id); }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken };
+function setLair(state, circle) { state.jack.lair = circle; }
+function logJackStep(state, circle, special) {
+  state.game.jackMoves += 1;
+  state.jack.path.push({ step: state.game.jackMoves, circle, special: special || null });
+  if (special === 'carriage') {
+    state.jack.carriages = Math.max(0, state.jack.carriages - 1);
+    state.log.push('Jack usó un carruaje');
+  } else if (special === 'alley') {
+    state.jack.alleys = Math.max(0, state.jack.alleys - 1);
+    state.log.push('Jack usó un callejón');
+  }
+}
+
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep };

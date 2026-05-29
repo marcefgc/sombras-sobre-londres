@@ -44,3 +44,27 @@ test('removeToken elimina por id', () => {
   G.removeToken(s, 'clue1');
   assert.strictEqual(s.tokens.length, 0);
 });
+
+test('setLair guarda la guarida', () => {
+  const s = G.createGame(); G.setLair(s, 42); assert.strictEqual(s.jack.lair, 42);
+});
+test('logJackStep registra paso e incrementa jackMoves', () => {
+  const s = G.createGame(); G.logJackStep(s, 100, null);
+  assert.strictEqual(s.game.jackMoves, 1);
+  assert.deepStrictEqual(s.jack.path[0], { step: 1, circle: 100, special: null });
+});
+test('logJackStep con carruaje descuenta el contador y registra en log', () => {
+  const s = G.createGame(); G.logJackStep(s, 50, 'carriage');
+  assert.strictEqual(s.jack.carriages, 1);
+  assert.ok(s.log.some((l) => l.includes('carruaje')));
+});
+test('logJackStep con callejón descuenta el contador', () => {
+  const s = G.createGame(); G.logJackStep(s, 51, 'alley');
+  assert.strictEqual(s.jack.alleys, 2);
+  assert.ok(s.log.some((l) => l.includes('callejón')));
+});
+test('los contadores no bajan de cero', () => {
+  const s = G.createGame();
+  G.logJackStep(s, 1, 'carriage'); G.logJackStep(s, 2, 'carriage'); G.logJackStep(s, 3, 'carriage');
+  assert.strictEqual(s.jack.carriages, 0);
+});
