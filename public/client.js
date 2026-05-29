@@ -132,6 +132,8 @@ function renderJackPanel(s) {
       <button id="stepAlley">Callejón (${s.jack.alleys})</button>
     </div>
     <div><small>Ruta de esta noche:</small><br/>${pathStr || '—'}</div>
+    <hr/>
+    <div class="row"><button id="reachedLairBtn">Llegué a mi guarida (fin de noche)</button></div>
   `;
   $('setLairBtn').onclick = () => {
     const c = parseInt($('lairInput').value, 10);
@@ -144,6 +146,7 @@ function renderJackPanel(s) {
   $('stepNormal').onclick = () => step(null);
   $('stepCarriage').onclick = () => step('carriage');
   $('stepAlley').onclick = () => step('alley');
+  $('reachedLairBtn').onclick = () => socket.emit('jack:reachedLair');
 }
 
 function buildControls() {
@@ -198,6 +201,17 @@ function buildControls() {
   document.getElementById('prepBtn').onclick = () => socket.emit('phase:crimePrep');
   document.getElementById('nightBtn').onclick = () => socket.emit('phase:nextNight');
 
+  // Amanecer: se agotaron los 15 turnos y Jack no llegó a su guarida -> gana la policía.
+  const dawnRow = document.createElement('div');
+  dawnRow.className = 'row';
+  dawnRow.innerHTML = '<button id="dawnBtn">Amanecer: Jack atrapado (se agotó la noche)</button>';
+  c.appendChild(dawnRow);
+  document.getElementById('dawnBtn').onclick = () => {
+    if (confirm('¿Declarar el amanecer? Si Jack no llegó a su guarida, gana la policía.')) {
+      socket.emit('phase:dawn');
+    }
+  };
+
   // Jack inicia el crimen (paso 0)
   if (myRole === 'jack') {
     const crimeRow = document.createElement('div');
@@ -228,4 +242,9 @@ socket.on('clue:result', ({ circle, passed }) => {
 socket.on('arrest:result', ({ circle, caught }) => {
   alert(caught ? '¡ATRAPADO en ' + circle + '! Gana la policía.'
                : 'Arresto fallido en ' + circle + '.');
+});
+socket.on('lair:result', ({ reached, won }) => {
+  if (!reached) alert('Aún no estás en tu guarida.');
+  else if (won) alert('¡Llegaste a tu guarida la última noche! GANA JACK.');
+  else alert('Llegaste a tu guarida. Comienza la siguiente noche.');
 });

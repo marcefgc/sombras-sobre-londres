@@ -144,3 +144,18 @@ test('viewFor incluye estado público compartido', () => {
   assert.strictEqual(v.tokens.length, 1);
   assert.ok(Array.isArray(v.log));
 });
+
+test('checkLairReached es verdadero solo si Jack está en su guarida', () => {
+  const s = G.createGame();
+  assert.strictEqual(G.checkLairReached(s), false); // sin guarida ni pasos
+  G.setLair(s, 42);
+  assert.strictEqual(G.checkLairReached(s), false); // guarida fijada pero Jack no se ha movido
+  G.logJackStep(s, 10, null);
+  assert.strictEqual(G.checkLairReached(s), false);
+  G.logJackStep(s, 42, null);
+  assert.strictEqual(G.checkLairReached(s), true);  // posición actual == guarida
+});
+
+test('TOTAL_NIGHTS es 4', () => {
+  assert.strictEqual(G.TOTAL_NIGHTS, 4);
+});

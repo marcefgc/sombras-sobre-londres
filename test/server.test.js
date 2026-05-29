@@ -121,3 +121,49 @@ test('arrest acertado termina la partida con victoria policial', async () => {
   jack.close(); det.close();
   await new Promise((r) => server.close(r));
 });
+
+test('jack:reachedLair avanza la noche y, en la noche 4, hace ganar a Jack', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('jack:setLair', { circle: 7 });
+
+  // Noche 1: comete crimen y llega a la guarida -> debe avanzar a la noche 2.
+  jack.emit('phase:startCrime', { circle: 7 }); // crimen en la propia guarida = ya está allí
+  const r1 = await new Promise((res) => { jack.once('lair:result', res); jack.emit('jack:reachedLair'); });
+  assert.strictEqual(r1.reached, true);
+  assert.strictEqual(r1.won, false);
+  await jackW.wait((s) => s.game.night === 2);
+
+  // Saltar a la noche 4.
+  jack.emit('phase:nextNight'); // noche 3
+  jack.emit('phase:nextNight'); // noche 4
+  await jackW.wait((s) => s.game.night === 4);
+  jack.emit('phase:startCrime', { circle: 7 });
+  const r4 = await new Promise((res) => { jack.once('lair:result', res); jack.emit('jack:reachedLair'); });
+  assert.strictEqual(r4.reached, true);
+  assert.strictEqual(r4.won, true);
+  const end = await jackW.wait((s) => s.game.phase === 'ended');
+  assert.ok(end.log.some((l) => l.includes('Jack')));
+  jack.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('phase:dawn termina con victoria policial', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const det = Client(`http://localhost:${port}`);
+  const detW = stateWaiter(det);
+  det.emit('join', { name: 'D', role: 'det1' });
+  await detW.wait();
+  det.emit('phase:dawn');
+  const v = await detW.wait((s) => s.game.phase === 'ended');
+  assert.ok(v.log.some((l) => l.includes('Policía')));
+  det.close();
+  await new Promise((r) => server.close(r));
+});

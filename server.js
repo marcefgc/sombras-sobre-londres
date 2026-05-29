@@ -79,6 +79,31 @@ function createServer() {
       sendStates();
     });
 
+    // Jack declara que llegó a su guarida (fin de noche). El servidor verifica
+    // de forma autoritativa contra su posición real. Si es la noche final, gana
+    // Jack; si no, avanza a la siguiente noche.
+    socket.on('jack:reachedLair', () => {
+      if (roleOf() !== 'jack') return;
+      const reached = G.checkLairReached(state);
+      if (reached) {
+        if (state.game.night >= G.TOTAL_NIGHTS) {
+          G.endGame(state, 'Jack');
+        } else {
+          state.log.push('Jack llegó a su guarida. Fin de la noche ' + state.game.night + '.');
+          G.nextNight(state);
+        }
+      }
+      socket.emit('lair:result', { reached, won: reached && state.game.phase === 'ended' });
+      if (reached) sendStates();
+    });
+
+    // Amanecer: se agotaron los 15 turnos de la noche y Jack no llegó a su
+    // guarida → gana la policía (lo deja atrapado fuera al amanecer).
+    socket.on('phase:dawn', () => {
+      G.endGame(state, 'Policía');
+      sendStates();
+    });
+
     socket.on('clue:ask', ({ circle }) => {
       const passed = G.checkClue(state, circle);
       state.log.push('Pista en ' + circle + ': ' + (passed ? 'SÍ' : 'no'));

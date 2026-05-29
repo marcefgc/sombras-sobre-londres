@@ -1,5 +1,6 @@
 const CARRIAGES_PER_NIGHT = 2;
 const ALLEYS_PER_NIGHT = 3;
+const TOTAL_NIGHTS = 4;
 
 function createGame() {
   return {
@@ -42,6 +43,10 @@ function getJackCircle(state) {
 }
 function checkClue(state, circle) { return state.jack.path.some((p) => p.circle === Number(circle)); }
 function checkArrest(state, circle) { return getJackCircle(state) === Number(circle); }
+// Jack está en su guarida si ya fijó una y su posición actual coincide con ella.
+function checkLairReached(state) {
+  return state.jack.lair != null && getJackCircle(state) === state.jack.lair;
+}
 
 function startCrimePrep(state) { state.game.phase = 'crime-prep'; }
 function startCrime(state, circle) {
@@ -73,4 +78,4 @@ function viewFor(state, role) {
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
