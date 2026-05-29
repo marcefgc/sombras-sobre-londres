@@ -1,0 +1,40 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Georgia, 'Times New Roman', serif;
+       background: #1a1714; color: #e8e2d6; }
+h1 { font-weight: normal; letter-spacing: 2px; }
+
+#lobby { max-width: 420px; margin: 12vh auto; text-align: center;
+         display: flex; flex-direction: column; gap: 12px; padding: 24px; }
+#lobby input, #lobby select, #lobby button { padding: 10px; font-size: 16px; }
+button { cursor: pointer; background: #712b13; color: #f5c4b3;
+         border: 1px solid #f0997b; border-radius: 6px; padding: 8px 12px; }
+button:hover { background: #8a3517; }
+
+#statusBar { display: flex; gap: 18px; align-items: center;
+             padding: 8px 16px; background: #0f0d0b; border-bottom: 1px solid #3a332b; }
+#statusBar span { font-size: 15px; }
+#resetBtn { margin-left: auto; }
+
+#layout { display: flex; gap: 12px; padding: 12px; }
+#boardWrap { position: relative; flex: 1; }
+#mapImg { width: 100%; display: block; border: 2px solid #3a332b; user-select: none; }
+#tokenLayer { position: absolute; inset: 0; }
+
+.token { position: absolute; width: 26px; height: 26px; border-radius: 50%;
+         transform: translate(-50%, -50%); cursor: grab; border: 2px solid #000;
+         display: flex; align-items: center; justify-content: center;
+         font-size: 12px; font-weight: bold; color: #fff; touch-action: none; }
+.token.detective { background: #1565c0; }
+.token.crime { background: #c62828; }
+.token.clue { background: #f9a825; color: #000; }
+.token.victim { background: #eceff1; color: #000; }
+
+#sidebar { width: 320px; background: #0f0d0b; padding: 12px;
+           border: 1px solid #3a332b; max-height: 88vh; overflow-y: auto; }
+#sidebar h3 { border-bottom: 1px solid #3a332b; padding-bottom: 4px; }
+#controls, #jackPanel { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#controls input, #jackPanel input { padding: 6px; width: 100%; }
+#log { list-style: none; padding: 0; font-size: 13px; }
+#log li { padding: 3px 0; border-bottom: 1px solid #221e19; }
+.row { display: flex; gap: 6px; }
+.row > * { flex: 1; }

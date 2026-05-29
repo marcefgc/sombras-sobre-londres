@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sombras sobre Londres</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- LOBBY -->
+  <section id="lobby">
+    <h1>Sombras sobre Londres</h1>
+    <input id="name" placeholder="Tu nombre" />
+    <select id="role">
+      <option value="jack">Jack el Destripador</option>
+      <option value="det1">Detective 1</option>
+      <option value="det2">Detective 2</option>
+      <option value="det3">Detective 3</option>
+      <option value="det4">Detective 4</option>
+      <option value="det5">Detective 5</option>
+      <option value="spectator">Espectador</option>
+    </select>
+    <button id="joinBtn">Entrar</button>
+  </section>
+
+  <!-- JUEGO -->
+  <section id="game" hidden>
+    <header id="statusBar">
+      <span id="nightLabel"></span>
+      <span id="phaseLabel"></span>
+      <span id="movesLabel"></span>
+      <button id="resetBtn">Reiniciar</button>
+    </header>
+
+    <div id="layout">
+      <div id="boardWrap">
+        <img id="mapImg" src="assets/mapa.png" alt="Mapa de Whitechapel" />
+        <div id="tokenLayer"></div>
+      </div>
+
+      <aside id="sidebar">
+        <div id="controls"></div>
+        <div id="jackPanel" hidden></div>
+        <h3>Registro</h3>
+        <ul id="log"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
