@@ -37,4 +37,10 @@ function logJackStep(state, circle, special) {
   }
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep };
+function getJackCircle(state) {
+  const p = state.jack.path; return p.length ? p[p.length - 1].circle : null;
+}
+function checkClue(state, circle) { return state.jack.path.some((p) => p.circle === circle); }
+function checkArrest(state, circle) { return getJackCircle(state) === circle; }
+
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest };

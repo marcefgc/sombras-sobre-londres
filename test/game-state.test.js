@@ -68,3 +68,22 @@ test('los contadores no bajan de cero', () => {
   G.logJackStep(s, 1, 'carriage'); G.logJackStep(s, 2, 'carriage'); G.logJackStep(s, 3, 'carriage');
   assert.strictEqual(s.jack.carriages, 0);
 });
+
+test('getJackCircle devuelve la posición actual o null', () => {
+  const s = G.createGame();
+  assert.strictEqual(G.getJackCircle(s), null);
+  G.logJackStep(s, 7, null); G.logJackStep(s, 8, null);
+  assert.strictEqual(G.getJackCircle(s), 8);
+});
+test('checkClue es verdadero si Jack pasó por el círculo', () => {
+  const s = G.createGame();
+  G.logJackStep(s, 7, null); G.logJackStep(s, 8, null);
+  assert.strictEqual(G.checkClue(s, 7), true);
+  assert.strictEqual(G.checkClue(s, 99), false);
+});
+test('checkArrest solo es verdadero en la posición actual', () => {
+  const s = G.createGame();
+  G.logJackStep(s, 7, null); G.logJackStep(s, 8, null);
+  assert.strictEqual(G.checkArrest(s, 8), true);
+  assert.strictEqual(G.checkArrest(s, 7), false);
+});
