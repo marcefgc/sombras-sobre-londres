@@ -1,0 +1,19 @@
+{
+  "name": "sombras-sobre-londres",
+  "version": "1.0.0",
+  "description": "Tablero online en red local de Letters from Whitechapel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "extract-map": "node scripts/extract-map.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5",
+    "pdf-to-img": "^4.2.0"
+  }
+}
