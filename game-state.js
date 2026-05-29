@@ -24,10 +24,10 @@ function moveToken(state, id, x, y) {
 }
 function removeToken(state, id) { state.tokens = state.tokens.filter((t) => t.id !== id); }
 
-function setLair(state, circle) { state.jack.lair = circle; }
+function setLair(state, circle) { state.jack.lair = Number(circle); }
 function logJackStep(state, circle, special) {
   state.game.jackMoves += 1;
-  state.jack.path.push({ step: state.game.jackMoves, circle, special: special || null });
+  state.jack.path.push({ step: state.game.jackMoves, circle: Number(circle), special: special || null });
   if (special === 'carriage') {
     state.jack.carriages = Math.max(0, state.jack.carriages - 1);
     state.log.push('Jack usó un carruaje');
@@ -40,15 +40,15 @@ function logJackStep(state, circle, special) {
 function getJackCircle(state) {
   const p = state.jack.path; return p.length ? p[p.length - 1].circle : null;
 }
-function checkClue(state, circle) { return state.jack.path.some((p) => p.circle === circle); }
-function checkArrest(state, circle) { return getJackCircle(state) === circle; }
+function checkClue(state, circle) { return state.jack.path.some((p) => p.circle === Number(circle)); }
+function checkArrest(state, circle) { return getJackCircle(state) === Number(circle); }
 
 function startCrimePrep(state) { state.game.phase = 'crime-prep'; }
 function startCrime(state, circle) {
   state.game.phase = 'hunt';
   state.game.jackMoves = 0;
   state.game.turn = 'jack';
-  state.jack.path = [{ step: 0, circle, special: null }];
+  state.jack.path = [{ step: 0, circle: Number(circle), special: null }];
   state.log.push('Comienza la caza: crimen en ' + circle);
 }
 function nextNight(state) {
