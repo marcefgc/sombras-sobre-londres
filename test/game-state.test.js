@@ -18,9 +18,9 @@ test('createGame tiene valores por defecto', () => {
 test('addPlayer y removePlayer', () => {
   const s = G.createGame();
   G.addPlayer(s, 'sock1', 'Ana', 'det1');
-  assert.deepStrictEqual(s.players['sock1'], { name: 'Ana', role: 'det1' });
+  assert.deepStrictEqual(s.players['sock1'], { name: 'Ana', role: 'det1', disconnected: false });
   G.removePlayer(s, 'sock1');
-  assert.strictEqual(s.players['sock1'], undefined);
+  assert.strictEqual(s.players['sock1'].disconnected, true);
 });
 
 test('upsertToken agrega y actualiza por id', () => {

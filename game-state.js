@@ -1,6 +1,7 @@
 const CARRIAGES_PER_NIGHT = 2;
 const ALLEYS_PER_NIGHT = 3;
 const TOTAL_NIGHTS = 4;
+const MOVES_PER_NIGHT = 15;
 
 function createGame() {
   return {
@@ -18,8 +19,34 @@ function setMode(state, mode) {
   state.game.mode = m;
   state.ref = { jackCircle: null, police: {} };
 }
-function addPlayer(state, socketId, name, role) { state.players[socketId] = { name, role }; }
-function removePlayer(state, socketId) { delete state.players[socketId]; }
+function addPlayer(state, socketId, name, role) {
+  if (!name || !name.trim()) return { ok: false, reason: 'nombre requerido' };
+  name = name.trim();
+
+  // Reconexión: buscar si ya existe un jugador con este nombre
+  const existing = Object.entries(state.players).find(([, p]) => p.name === name);
+  if (existing) {
+    const [oldId, p] = existing;
+    // Si ya existe, movemos su estado al nuevo socketId
+    delete state.players[oldId];
+    state.players[socketId] = { ...p, socketId, disconnected: false };
+    return { ok: true, role: p.role };
+  }
+
+  // Unicidad de rol: Jack y Detectives son únicos. Espectadores no.
+  if (role === 'jack' || (role && role.startsWith('det'))) {
+    const taken = Object.values(state.players).some((p) => p.role === role);
+    if (taken) return { ok: false, reason: 'rol ya ocupado' };
+  }
+
+  state.players[socketId] = { name, role, disconnected: false };
+  return { ok: true, role };
+}
+function removePlayer(state, socketId) {
+  if (state.players[socketId]) {
+    state.players[socketId].disconnected = true;
+  }
+}
 
 function upsertToken(state, token) {
   const i = state.tokens.findIndex((t) => t.id === token.id);
@@ -34,6 +61,7 @@ function removeToken(state, id) { state.tokens = state.tokens.filter((t) => t.id
 
 function setLair(state, circle) { state.jack.lair = Number(circle); }
 function logJackStep(state, circle, special) {
+  if (state.game.jackMoves >= MOVES_PER_NIGHT) return;
   state.game.jackMoves += 1;
   state.jack.path.push({ step: state.game.jackMoves, circle: Number(circle), special: special || null });
   if (special === 'carriage') {
@@ -87,4 +115,4 @@ function viewFor(state, role) {
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
