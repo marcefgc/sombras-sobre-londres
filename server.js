@@ -69,24 +69,25 @@ function createServer() {
       sendStates();
     });
 
-    // Token, phase, clue/arrest and reset events are intentionally open to any
-    // connected player (cooperative local-network trust model). Only the three
-    // Jack-private events below are role-guarded.
-    socket.on('addToken', (token) => { G.upsertToken(state, token); sendStates(); });
-    socket.on('moveToken', ({ id, x, y }) => { G.moveToken(state, id, x, y); sendStates(); });
-    socket.on('removeToken', ({ id }) => { G.removeToken(state, id); sendStates(); });
+    // Eventos del modo manual. En modo árbitro (referee) las fichas libres y las
+    // acciones por número no aplican — el modo Aprendizaje usa los eventos ref:*
+    // que validan todo. Por eso se ignoran si la partida está en modo referee.
+    const manualOnly = () => state.game.mode === 'referee';
+    socket.on('addToken', (token) => { if (manualOnly()) return; G.upsertToken(state, token); sendStates(); });
+    socket.on('moveToken', ({ id, x, y }) => { if (manualOnly()) return; G.moveToken(state, id, x, y); sendStates(); });
+    socket.on('removeToken', ({ id }) => { if (manualOnly()) return; G.removeToken(state, id); sendStates(); });
 
     socket.on('jack:setLair', ({ circle }) => {
       if (roleOf() !== 'jack') return;
       G.setLair(state, circle); sendStates();
     });
     socket.on('jack:logStep', ({ circle, special }) => {
-      if (roleOf() !== 'jack') return;
+      if (roleOf() !== 'jack' || manualOnly()) return;
       G.logJackStep(state, circle, special); sendStates();
     });
     socket.on('phase:crimePrep', () => { G.startCrimePrep(state); sendStates(); });
     socket.on('phase:startCrime', ({ circle }) => {
-      if (roleOf() !== 'jack') return;
+      if (roleOf() !== 'jack' || manualOnly()) return;
       G.startCrime(state, circle); sendStates();
     });
     socket.on('phase:nextNight', () => { G.nextNight(state); sendStates(); });
@@ -123,6 +124,7 @@ function createServer() {
     });
 
     socket.on('clue:ask', ({ circle }) => {
+      if (manualOnly()) return; // en referee se usa ref:search (valida adyacencia)
       const passed = G.checkClue(state, circle);
       state.log.push('Pista en ' + circle + ': ' + (passed ? 'SÍ' : 'no'));
       io.emit('clue:result', { circle, passed });
@@ -131,6 +133,7 @@ function createServer() {
       sendStates();
     });
     socket.on('arrest', ({ circle }) => {
+      if (manualOnly()) return; // en referee se usa ref:arrest (valida adyacencia)
       const caught = G.checkArrest(state, circle);
       state.log.push('¡Arresto en ' + circle + '! ' + (caught ? 'ATRAPADO' : 'fallido'));
       io.emit('arrest:result', { circle, caught });
@@ -141,7 +144,7 @@ function createServer() {
     });
 
     socket.on('setMode', ({ mode }) => {
-      if (state.game.phase !== 'lobby' && state.game.phase !== 'crime-prep') return;
+      if (state.game.phase !== 'lobby') return; // el modo se fija antes de empezar
       G.setMode(state, mode);
       sendStates();
     });

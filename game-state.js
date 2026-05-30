@@ -13,7 +13,9 @@ function createGame() {
   };
 }
 function setMode(state, mode) {
-  state.game.mode = (mode === 'referee') ? 'referee' : 'manual';
+  const m = (mode === 'referee') ? 'referee' : 'manual';
+  if (state.game.mode === m && state.ref) return; // sin cambios: no borrar posiciones
+  state.game.mode = m;
   state.ref = { jackCircle: null, police: {} };
 }
 function addPlayer(state, socketId, name, role) { state.players[socketId] = { name, role }; }
