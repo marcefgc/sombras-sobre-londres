@@ -1,43 +1,161 @@
+:root {
+  --ink:#3a281a; --ink-soft:#5a3d22; --paper:#e7d8b4; --paper-dk:#d3bd8f;
+  --edge:#4a321a; --cream:#f6ecd2; --blood:#7a140f;
+}
+
 * { box-sizing: border-box; }
+
 /* El atributo [hidden] debe ganarle a reglas de display de mayor especificidad
    (p. ej. #lobby { display:flex }); sin esto el lobby no se oculta al entrar. */
 [hidden] { display: none !important; }
-body { margin: 0; font-family: Georgia, 'Times New Roman', serif;
-       background: #1a1714; color: #e8e2d6; }
-h1 { font-weight: normal; letter-spacing: 2px; }
 
-#lobby { max-width: 420px; margin: 12vh auto; text-align: center;
-         display: flex; flex-direction: column; gap: 12px; padding: 24px; }
-#lobby input, #lobby select, #lobby button { padding: 10px; font-size: 16px; }
-button { cursor: pointer; background: #712b13; color: #f5c4b3;
-         border: 1px solid #f0997b; border-radius: 6px; padding: 8px 12px; }
-button:hover { background: #8a3517; }
+body {
+  margin: 0;
+  background: radial-gradient(120% 120% at 50% 0%, #2b2722 0%, #1a1714 60%, #100e0c 100%);
+  color: var(--cream);
+  font-family: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
 
-#statusBar { display: flex; gap: 18px; align-items: center;
-             padding: 8px 16px; background: #0f0d0b; border-bottom: 1px solid #3a332b; }
-#statusBar span { font-size: 15px; }
+h1 { font-weight: 700; letter-spacing: 2px; }
+
+/* Ambiente: salpicaduras de sangre detrás del contenido */
+.splat {
+  position: fixed; pointer-events: none; z-index: 0;
+  opacity: .4; filter: saturate(1.05);
+}
+.s1 { top: -40px; left: -30px; width: 280px; transform: rotate(20deg); }
+.s2 { top: 34%; right: -60px; width: 340px; transform: rotate(-30deg); }
+.s3 { bottom: -50px; left: 8%; width: 300px; transform: rotate(12deg); opacity: .32; }
+
+/* El contenido real va por encima de las salpicaduras ambientales */
+#lobby, #game { position: relative; z-index: 1; }
+
+/* LOBBY — tarjeta de pergamino centrada */
+#lobby {
+  max-width: 440px; margin: 10vh auto;
+  background: url('assets/parchment.png') center/cover;
+  color: var(--ink);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 28px 26px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  text-align: center;
+  display: flex; flex-direction: column; gap: 12px;
+}
+#lobby h1 {
+  font-family: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  color: #3a281a; letter-spacing: 3px; margin: 4px 0 10px;
+}
+#lobby input, #lobby select {
+  border: 1px solid var(--edge);
+  background: rgba(255,250,235,.7);
+  color: var(--ink);
+  padding: 10px; font-size: 16px; font-family: inherit;
+  border-radius: 3px;
+}
+
+/* Botones generales */
+button, .btn {
+  border: 1px solid rgba(180,150,95,.45);
+  background: rgba(60,48,30,.6);
+  color: var(--cream);
+  font-family: Georgia, serif;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 9px 14px; border-radius: 3px; cursor: pointer;
+}
+button:hover, .btn:hover {
+  background: rgba(95,76,46,.8);
+  border-color: rgba(200,170,110,.7);
+}
+
+/* Botones del lobby con tono sangre, cohesivo con el set victoriano */
+#lobby button {
+  background: rgba(122,20,15,.85);
+  border-color: rgba(150,120,70,.6);
+  color: #f6ecd2;
+}
+#lobby button:hover {
+  background: rgba(150,30,22,.95);
+  border-color: rgba(200,170,110,.8);
+}
+
+/* BARRA DE ESTADO */
+#statusBar {
+  display: flex; gap: 18px; align-items: center;
+  padding: 8px 16px;
+  background: #0f0d0b; border-bottom: 1px solid #3a332b;
+  color: #a08a5e; letter-spacing: .06em; font-size: 14px;
+}
+#statusBar span { font-size: 14px; }
 #resetBtn { margin-left: auto; }
 
-#layout { display: flex; gap: 12px; padding: 12px; }
-#boardWrap { position: relative; flex: 1; }
-#mapImg { width: 100%; display: block; border: 2px solid #3a332b; user-select: none; }
+/* LAYOUT */
+#layout { display: flex; gap: 14px; padding: 14px; }
+
+#boardWrap {
+  position: relative; flex: 1;
+  border-radius: 4px; overflow: hidden; background: #000;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6),
+              0 0 0 1px rgba(180,150,95,.25),
+              0 0 0 12px rgba(20,16,12,.6),
+              0 0 0 13px rgba(150,120,70,.35);
+}
+#mapImg { width: 100%; display: block; user-select: none; }
 #tokenLayer { position: absolute; inset: 0; }
 
-.token { position: absolute; width: 26px; height: 26px; border-radius: 50%;
-         transform: translate(-50%, -50%); cursor: grab; border: 2px solid #000;
-         display: flex; align-items: center; justify-content: center;
-         font-size: 12px; font-weight: bold; color: #fff; touch-action: none; }
-.token.detective { background: #1565c0; }
-.token.crime { background: #c62828; }
-.token.clue { background: #f9a825; color: #000; }
-.token.victim { background: #eceff1; color: #000; }
+/* FICHAS — imágenes PNG */
+.token {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  cursor: grab; touch-action: none;
+}
+.token img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.6));
+  pointer-events: none;
+}
 
-#sidebar { width: 320px; background: #0f0d0b; padding: 12px;
-           border: 1px solid #3a332b; max-height: 88vh; overflow-y: auto; }
-#sidebar h3 { border-bottom: 1px solid #3a332b; padding-bottom: 4px; }
-#controls, #jackPanel { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-#controls input, #jackPanel input { padding: 6px; width: 100%; }
+/* SIDEBAR */
+#sidebar {
+  width: 330px; max-height: 88vh; overflow-y: auto; padding: 14px;
+  background: linear-gradient(180deg, rgba(58,46,30,.9), rgba(30,24,18,.92));
+  border: 1px solid rgba(150,120,70,.28);
+  border-radius: 8px;
+}
+#sidebar h3 {
+  color: #f0e3c4; font-weight: 700;
+  border-bottom: 1px solid rgba(150,120,70,.25);
+  padding-bottom: 4px;
+}
+
+#controls, #jackPanel {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+}
+#controls input, #jackPanel input {
+  padding: 8px; width: 100%;
+  border: 1px solid var(--edge);
+  background: rgba(255,250,235,.92);
+  color: var(--ink);
+  font-family: inherit; font-size: 15px;
+  border-radius: 3px;
+}
+
+/* REGISTRO */
 #log { list-style: none; padding: 0; font-size: 13px; }
-#log li { padding: 3px 0; border-bottom: 1px solid #221e19; }
+#log li {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(120,90,50,.18);
+  color: #c9b487;
+}
+
 .row { display: flex; gap: 6px; }
 .row > * { flex: 1; }
+
+@media (max-width: 760px) {
+  #layout { flex-direction: column; }
+  #sidebar { width: 100%; }
+}
