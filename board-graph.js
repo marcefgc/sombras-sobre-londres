@@ -7,6 +7,8 @@ function viaSquare(a, b) {
   return n ? n.via : undefined;
 }
 function squareNeighbors(squareId) { return data.squareAdj[squareId] || []; }
+// Círculos que un policía parado en este cuadrado puede interrogar/arrestar.
+function squareCircles(squareId) { return (data.squareCircles && data.squareCircles[squareId]) || []; }
 function node(id) { return data.nodes[id]; }
 
-module.exports = { data, neighbors, isAdjacent, viaSquare, squareNeighbors, node };
+module.exports = { data, neighbors, isAdjacent, viaSquare, squareNeighbors, squareCircles, node };

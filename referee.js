@@ -81,11 +81,8 @@ function movePolice(state, who, square) {
 function circlesAroundPolice(state, who) {
   const sq = state.ref.police[who];
   if (sq == null) return [];
-  const out = new Set();
-  for (let c = 0; c < B.data.meta.circles; c++) {
-    for (const n of B.neighbors(c)) if (n.via === sq) { out.add(c); }
-  }
-  return [...out];
+  // Los círculos directamente conectados a la esquina donde está el policía.
+  return B.squareCircles(sq);
 }
 
 function searchClue(state, who, circle) {

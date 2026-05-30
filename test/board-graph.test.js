@@ -43,3 +43,12 @@ test('crimeStarts son círculos válidos', () => {
     assert.strictEqual(B.data.nodes[c].type, 'circle');
   }
 });
+
+test('squareCircles cubre los 195 círculos (todos interrogables)', () => {
+  const seen = new Set();
+  for (const s of Object.keys(B.data.squareCircles)) for (const c of B.data.squareCircles[s]) seen.add(c);
+  assert.strictEqual(seen.size, 195);
+  // helper coincide con los datos
+  const anySq = Object.keys(B.data.squareCircles).find((s) => B.data.squareCircles[s].length);
+  assert.deepStrictEqual(B.squareCircles(+anySq), B.data.squareCircles[anySq]);
+});
