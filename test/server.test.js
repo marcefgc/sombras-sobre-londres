@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { io: Client } = require('socket.io-client');
 const { createServer } = require('../server');
+const B = require('../board-graph');
 
 // One-shot result events (clue:result / arrest:result) are emitted exactly once
 // in response to a request, so `once` is safe for them.
@@ -165,5 +166,89 @@ test('phase:dawn termina con victoria policial', async () => {
   const v = await detW.wait((s) => s.game.phase === 'ended');
   assert.ok(v.log.some((l) => l.includes('Policía')));
   det.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('setMode referee se propaga y bloquea info privada del asesino', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const det = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack), detW = stateWaiter(det);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  det.emit('join', { name: 'D', role: 'det1' });
+  await jackW.wait(); await detW.wait();
+  jack.emit('setMode', { mode: 'referee' });
+  const c = B.data.crimeStarts[0];
+  jack.emit('ref:startCrime', { circle: c });
+  const jv = await jackW.wait((s) => s.ref && s.ref.jackCircle === c);
+  assert.strictEqual(jv.game.mode, 'referee');
+  const dv = await detW.wait((s) => s.game.mode === 'referee');
+  assert.strictEqual(dv.ref.jackCircle, undefined);
+  jack.close(); det.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('Jack en referee recibe destinos legales en su vista', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('setMode', { mode: 'referee' });
+  const c = B.data.crimeStarts[0];
+  jack.emit('ref:startCrime', { circle: c });
+  const jv = await jackW.wait((s) => s.ref && s.ref.legal && s.ref.legal.normal);
+  assert.ok(Array.isArray(jv.ref.legal.normal));
+  assert.ok(jv.ref.legal.normal.length > 0);
+  jack.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('ref:moveJack ilegal es rechazado con motivo', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('setMode', { mode: 'referee' });
+  const c = B.data.crimeStarts[0];
+  jack.emit('ref:startCrime', { circle: c });
+  await jackW.wait((s) => s.ref.jackCircle === c);
+  const rej = await new Promise((res) => { jack.once('ref:rejected', res); jack.emit('ref:moveJack', { circle: 99999, kind: 'normal' }); });
+  assert.ok(rej.reason);
+  jack.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('ref:search en referee resuelve pista automáticamente', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const det = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack), detW = stateWaiter(det);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  det.emit('join', { name: 'D', role: 'det1' });
+  await jackW.wait(); await detW.wait();
+  jack.emit('setMode', { mode: 'referee' });
+  const c = B.data.crimeStarts[0];
+  jack.emit('ref:startCrime', { circle: c });
+  await detW.wait((s) => s.ref && s.ref.jackCircle === undefined && s.game.mode === 'referee');
+  // coloca al policía en un cuadrado adyacente al círculo del crimen
+  const via = B.neighbors(c).find((n) => n.via != null);
+  if (via) {
+    det.emit('ref:movePolice', { square: via.via });
+    await detW.wait((s) => s.ref.police['det1'] === via.via);
+    const res = await new Promise((r) => { det.once('clue:result', r); det.emit('ref:search', { circle: c }); });
+    assert.strictEqual(res.circle, c);
+    assert.strictEqual(res.passed, true);
+  }
+  jack.close(); det.close();
   await new Promise((r) => server.close(r));
 });

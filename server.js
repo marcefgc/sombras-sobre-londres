@@ -3,6 +3,7 @@ const http = require('node:http');
 const express = require('express');
 const { Server } = require('socket.io');
 const G = require('./game-state');
+const R = require('./referee');
 
 function createServer() {
   const app = express();
@@ -16,9 +17,26 @@ function createServer() {
   // an unchanged state would consume a poll and let the next real update slip
   // through the gap between `once` re-registrations. Deduping avoids that race.
   const lastSent = new Map();
+  function viewForRole(role) {
+    const view = G.viewFor(state, role);
+    if (state.game.mode === 'referee' && state.ref) {
+      if (role === 'jack' && state.ref.jackCircle != null) {
+        view.ref.legal = {
+          normal: R.legalNormalTargets(state),
+          carriage: R.legalCarriageTargets(state),
+          alley: R.legalAlleyTargets(state),
+        };
+      } else if (role && role.startsWith('det')) {
+        const from = state.ref.police[role];
+        view.ref.legalSquares = from != null ? R.reachableSquares(state, from, 2) : [];
+        view.ref.searchable = R.circlesAroundPolice(state, role);
+      }
+    }
+    return view;
+  }
   function emitStates() {
     for (const [id, p] of Object.entries(state.players)) {
-      const json = JSON.stringify(G.viewFor(state, p.role));
+      const json = JSON.stringify(viewForRole(p.role));
       if (lastSent.get(id) === json) continue;
       lastSent.set(id, json);
       io.to(id).emit('state', JSON.parse(json));
@@ -45,7 +63,7 @@ function createServer() {
 
     socket.on('join', ({ name, role }) => {
       G.addPlayer(state, socket.id, name, role);
-      const json = JSON.stringify(G.viewFor(state, role));
+      const json = JSON.stringify(viewForRole(role));
       lastSent.set(socket.id, json);
       socket.emit('state', JSON.parse(json));
       sendStates();
@@ -119,6 +137,46 @@ function createServer() {
       if (caught) G.endGame(state, 'Policía');
       const jid = jackSocketId();
       if (jid) io.to(jid).emit('arrest:attempt', { circle });
+      sendStates();
+    });
+
+    socket.on('setMode', ({ mode }) => {
+      if (state.game.phase !== 'lobby' && state.game.phase !== 'crime-prep') return;
+      G.setMode(state, mode);
+      sendStates();
+    });
+    socket.on('ref:startCrime', ({ circle }) => {
+      if (roleOf() !== 'jack' || state.game.mode !== 'referee') return;
+      const r = R.startCrimeAt(state, circle);
+      if (!r.ok) return socket.emit('ref:rejected', r);
+      sendStates();
+    });
+    socket.on('ref:moveJack', ({ circle, kind }) => {
+      if (roleOf() !== 'jack' || state.game.mode !== 'referee') return;
+      const r = R.moveJack(state, circle, kind || 'normal');
+      if (!r.ok) { state.log.push('Movimiento rechazado: ' + r.reason); socket.emit('ref:rejected', r); sendStates(); return; }
+      sendStates();
+    });
+    socket.on('ref:movePolice', ({ square }) => {
+      if (state.game.mode !== 'referee') return;
+      const r = R.movePolice(state, roleOf(), square);
+      if (!r.ok) return socket.emit('ref:rejected', r);
+      sendStates();
+    });
+    socket.on('ref:search', ({ circle }) => {
+      if (state.game.mode !== 'referee') return;
+      const r = R.searchClue(state, roleOf(), circle);
+      if (!r.ok) return socket.emit('ref:rejected', r);
+      io.emit('clue:result', { circle, passed: r.passed });
+      const jid = jackSocketId(); if (jid) io.to(jid).emit('clue:asked', { circle });
+      sendStates();
+    });
+    socket.on('ref:arrest', ({ circle }) => {
+      if (state.game.mode !== 'referee') return;
+      const r = R.arrest(state, roleOf(), circle);
+      if (!r.ok) return socket.emit('ref:rejected', r);
+      io.emit('arrest:result', { circle, caught: r.caught });
+      const jid = jackSocketId(); if (jid) io.to(jid).emit('arrest:attempt', { circle });
       sendStates();
     });
 
