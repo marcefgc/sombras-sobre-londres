@@ -159,3 +159,32 @@ test('checkLairReached es verdadero solo si Jack está en su guarida', () => {
 test('TOTAL_NIGHTS es 4', () => {
   assert.strictEqual(G.TOTAL_NIGHTS, 4);
 });
+
+test('createGame por defecto es modo manual', () => {
+  const s = G.createGame();
+  assert.strictEqual(s.game.mode, 'manual');
+});
+
+test('setMode cambia el modo y refPos existe en referee', () => {
+  const s = G.createGame();
+  G.setMode(s, 'referee');
+  assert.strictEqual(s.game.mode, 'referee');
+  assert.deepStrictEqual(s.ref, { jackCircle: null, police: {} });
+});
+
+test('viewFor no expone ref.jackCircle a no-Jack', () => {
+  const s = G.createGame();
+  G.setMode(s, 'referee');
+  s.ref.jackCircle = 10;
+  const v = G.viewFor(s, 'det1');
+  assert.strictEqual(v.ref.jackCircle, undefined);
+  assert.deepStrictEqual(v.ref.police, {});
+});
+
+test('viewFor expone ref.jackCircle a Jack', () => {
+  const s = G.createGame();
+  G.setMode(s, 'referee');
+  s.ref.jackCircle = 10;
+  const v = G.viewFor(s, 'jack');
+  assert.strictEqual(v.ref.jackCircle, 10);
+});

@@ -4,12 +4,17 @@ const TOTAL_NIGHTS = 4;
 
 function createGame() {
   return {
-    game: { night: 1, phase: 'lobby', jackMoves: 0, turn: 'jack' },
+    game: { night: 1, phase: 'lobby', jackMoves: 0, turn: 'jack', mode: 'manual' },
     players: {},
     tokens: [],
     jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT },
+    ref: { jackCircle: null, police: {} },
     log: [],
   };
+}
+function setMode(state, mode) {
+  state.game.mode = (mode === 'referee') ? 'referee' : 'manual';
+  state.ref = { jackCircle: null, police: {} };
 }
 function addPlayer(state, socketId, name, role) { state.players[socketId] = { name, role }; }
 function removePlayer(state, socketId) { delete state.players[socketId]; }
@@ -75,7 +80,9 @@ function viewFor(state, role) {
   const view = { game: state.game, players: state.players, tokens: state.tokens, log: state.log };
   if (role === 'jack') view.jack = state.jack;
   else view.jack = { carriages: state.jack.carriages, alleys: state.jack.alleys };
+  view.ref = { police: state.ref ? state.ref.police : {} };
+  if (role === 'jack' && state.ref) view.ref.jackCircle = state.ref.jackCircle;
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, createGame, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
