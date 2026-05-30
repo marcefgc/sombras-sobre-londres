@@ -23,8 +23,21 @@ function legalNormalTargets(state) {
 }
 function legalCarriageTargets(state) {
   const from = state.ref.jackCircle;
+  const occ = occupiedSquares(state);
   const set = new Set();
-  for (const n of B.neighbors(from)) for (const m of B.neighbors(n.circle)) if (m.circle !== from) set.add(m.circle);
+  // Un movimiento de carruaje son dos movimientos normales seguidos.
+  // La policía puede bloquear cualquiera de los dos pasos si ocupa el cuadrado 'via'.
+  for (const n of B.neighbors(from)) {
+    // Primer paso: de 'from' a 'n.circle'
+    if (n.via != null && occ.has(n.via)) continue;
+
+    for (const m of B.neighbors(n.circle)) {
+      // Segundo paso: de 'n.circle' a 'm.circle'
+      if (m.circle === from) continue;
+      if (m.via != null && occ.has(m.via)) continue;
+      set.add(m.circle);
+    }
+  }
   return [...set];
 }
 function legalAlleyTargets(state) {
@@ -39,6 +52,7 @@ function legalAlleyTargets(state) {
 
 function moveJack(state, circle, kind) {
   if (state.ref.jackCircle == null) return { ok: false, reason: 'sin posición' };
+  if (state.game.jackMoves >= G.MOVES_PER_NIGHT) return { ok: false, reason: 'límite de movimientos alcanzado' };
   let legal, special = null;
   if (kind === 'carriage') {
     if (state.jack.carriages <= 0) return { ok: false, reason: 'sin carruajes' };
@@ -99,5 +113,5 @@ function arrest(state, who, circle) {
   return { ok: true, caught };
 }
 
-module.exports = { ALLEY_RADIUS, startCrimeAt, moveJack, movePolice, searchClue, arrest,
+module.exports = { B, ALLEY_RADIUS, startCrimeAt, moveJack, movePolice, searchClue, arrest,
   legalNormalTargets, legalCarriageTargets, legalAlleyTargets, reachableSquares, circlesAroundPolice };

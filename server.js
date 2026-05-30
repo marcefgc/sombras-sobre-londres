@@ -62,8 +62,9 @@ function createServer() {
     }
 
     socket.on('join', ({ name, role }) => {
-      G.addPlayer(state, socket.id, name, role);
-      const json = JSON.stringify(viewForRole(role));
+      const r = G.addPlayer(state, socket.id, name, role);
+      if (!r.ok) return socket.emit('join:rejected', r);
+      const json = JSON.stringify(viewForRole(r.role));
       lastSent.set(socket.id, json);
       socket.emit('state', JSON.parse(json));
       sendStates();
@@ -82,16 +83,25 @@ function createServer() {
       G.setLair(state, circle); sendStates();
     });
     socket.on('jack:logStep', ({ circle, special }) => {
-      if (roleOf() !== 'jack' || manualOnly()) return;
+      if (roleOf() !== 'jack' || state.game.mode !== 'manual') return;
       G.logJackStep(state, circle, special); sendStates();
     });
-    socket.on('phase:crimePrep', () => { G.startCrimePrep(state); sendStates(); });
+    socket.on('phase:crimePrep', () => {
+      if (roleOf() !== 'jack') return;
+      G.startCrimePrep(state); sendStates();
+    });
     socket.on('phase:startCrime', ({ circle }) => {
-      if (roleOf() !== 'jack' || manualOnly()) return;
+      if (roleOf() !== 'jack' || state.game.mode !== 'manual') return;
+      if (R.B.node(circle) == null || R.B.node(circle).type !== 'circle') return;
       G.startCrime(state, circle); sendStates();
     });
-    socket.on('phase:nextNight', () => { G.nextNight(state); sendStates(); });
+    socket.on('phase:nextNight', () => {
+      if (roleOf() !== 'jack') return;
+      G.nextNight(state); sendStates();
+    });
     socket.on('reset', () => {
+      const rolesAssigned = Object.values(state.players).some((p) => p.role === 'jack' || (p.role && p.role.startsWith('det')));
+      if (rolesAssigned && roleOf() !== 'jack') return;
       const fresh = G.createGame();
       fresh.players = state.players;
       Object.assign(state, fresh);
@@ -119,6 +129,9 @@ function createServer() {
     // Amanecer: se agotaron los 15 turnos de la noche y Jack no llegó a su
     // guarida → gana la policía (lo deja atrapado fuera al amanecer).
     socket.on('phase:dawn', () => {
+      if (state.game.phase !== 'hunt') return;
+      const jackMovesExhausted = state.game.jackMoves >= G.MOVES_PER_NIGHT;
+      if (roleOf() !== 'jack' && !jackMovesExhausted) return;
       G.endGame(state, 'Policía');
       sendStates();
     });
@@ -145,6 +158,7 @@ function createServer() {
 
     socket.on('setMode', ({ mode }) => {
       if (state.game.phase !== 'lobby') return; // el modo se fija antes de empezar
+      if (roleOf() !== 'jack' && Object.values(state.players).some(p => p.role === 'jack')) return;
       G.setMode(state, mode);
       sendStates();
     });
