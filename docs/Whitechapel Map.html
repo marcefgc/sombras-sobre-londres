@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whitechapel — Mapa, Fichas y Elementos</title>
+<style>
+  :root{
+    --ink:#3a281a; --ink-soft:#5a3d22; --paper:#e7d8b4; --paper-dk:#d3bd8f;
+    --edge:#4a321a; --cream:#f6ecd2; --blood:#7a140f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(120% 120% at 50% 0%, #2b2722 0%, #1a1714 60%, #100e0c 100%);
+    color:var(--cream);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    min-height:100vh; padding:40px clamp(16px,4vw,64px) 90px; position:relative; overflow-x:hidden;
+  }
+  /* page blood ambiance */
+  .splat{position:fixed;pointer-events:none;z-index:0;opacity:.5;filter:saturate(1.05);}
+  .s1{top:-40px;left:-30px;width:280px;transform:rotate(20deg);}
+  .s2{top:34%;right:-60px;width:340px;transform:rotate(-30deg);}
+  .s3{bottom:-50px;left:8%;width:300px;transform:rotate(12deg);opacity:.42;}
+  .wrap{position:relative;z-index:1;}
+
+  header{max-width:1320px;margin:0 auto 34px;text-align:center;position:relative;}
+  .kicker{font-size:13px;letter-spacing:.42em;text-transform:uppercase;color:#b89b6a;margin:0 0 14px;font-family:Georgia,serif;}
+  h1{font-size:clamp(34px,5vw,58px);margin:0;font-weight:700;letter-spacing:.02em;color:#f3e7c8;}
+  h1 .sub{display:block;font-size:.34em;letter-spacing:.36em;color:#9c8557;font-weight:400;margin-top:14px;text-transform:uppercase;}
+  .rule{display:flex;align-items:center;justify-content:center;gap:14px;margin:22px auto 0;max-width:520px;}
+  .rule::before,.rule::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,#8a7345,transparent);}
+  .rule .dia{width:9px;height:9px;background:#8a7345;transform:rotate(45deg);}
+
+  .panel{max-width:1320px;margin:0 auto;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:0 auto 16px;}
+  .toolbar .meta{font-size:13px;letter-spacing:.06em;color:#a08a5e;}
+  .btn{appearance:none;border:1px solid rgba(180,150,95,.4);background:rgba(60,48,30,.5);color:#e9dcbb;font-family:Georgia,serif;font-size:13px;letter-spacing:.08em;padding:9px 16px;border-radius:3px;cursor:pointer;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:.15s;}
+  .btn:hover{background:rgba(95,76,46,.7);border-color:rgba(200,170,110,.7);}
+
+  .map-frame{position:relative;border-radius:4px;overflow:hidden;background:#000;
+    box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(180,150,95,.25),0 0 0 12px rgba(20,16,12,.6),0 0 0 13px rgba(150,120,70,.35);}
+  .map-frame img{display:block;width:100%;height:auto;}
+
+  section{margin-top:64px;}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin:0 0 4px;flex-wrap:wrap;}
+  .sec-head h2{font-size:26px;margin:0;color:#f0e3c4;font-weight:700;letter-spacing:.03em;}
+  .sec-head span{font-size:13px;color:#9c8557;letter-spacing:.08em;}
+  .grp-label{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:#b89b6a;margin:32px 0 16px;padding-bottom:8px;border-bottom:1px solid rgba(150,120,70,.25);font-family:Georgia,serif;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;}
+  .tok{background:linear-gradient(180deg,rgba(58,46,30,.55),rgba(34,28,20,.55));border:1px solid rgba(150,120,70,.22);border-radius:6px;padding:18px 12px 14px;text-align:center;transition:.18s;}
+  .tok:hover{transform:translateY(-3px);border-color:rgba(200,170,110,.55);box-shadow:0 14px 30px rgba(0,0,0,.45);}
+  .tok .well{height:118px;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(rgba(255,255,255,.04) 0% 25%, transparent 0% 50%) 50%/22px 22px;border-radius:5px;margin-bottom:12px;}
+  .tok img{max-width:96px;max-height:96px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));}
+  .tok .nm{font-size:14px;color:#ecdfbf;font-weight:600;}
+  .tok .qty{font-size:11px;color:#9c8557;letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+
+  /* element cards (notebooks, pads) */
+  .ecard{background:linear-gradient(180deg,rgba(58,46,30,.5),rgba(30,24,18,.55));border:1px solid rgba(150,120,70,.22);border-radius:8px;padding:16px;text-align:center;}
+  .ecard img{width:100%;height:auto;border-radius:5px;display:block;filter:drop-shadow(0 10px 22px rgba(0,0,0,.5));}
+  .ecard .nm{font-size:14px;color:#ecdfbf;font-weight:600;margin-top:12px;}
+  .ecard .qty{font-size:11px;color:#9c8557;letter-spacing:.08em;margin-top:3px;}
+  .notebooks{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:18px;}
+  .feature{display:grid;grid-template-columns:1.3fr .7fr;gap:24px;align-items:start;}
+  @media(max-width:760px){.feature{grid-template-columns:1fr;}}
+  .feature .note{background:rgba(60,48,30,.4);border:1px solid rgba(150,120,70,.22);border-radius:8px;padding:22px 24px;}
+  .feature .note h3{margin:0 0 10px;color:#e7d091;font-size:19px;}
+  .feature .note p{margin:0 0 12px;color:#c9b487;font-size:15px;line-height:1.7;}
+  .feature .note .blood-dot{color:var(--blood);font-style:italic;}
+
+  footer{max-width:1320px;margin:64px auto 0;text-align:center;color:#7d6a47;font-size:12px;letter-spacing:.1em;line-height:1.9;}
+  @media(max-width:640px){.tok img{max-width:74px;max-height:74px;}.tok .well{height:96px;}}
+</style>
+</head>
+<body>
+  <img class="splat s1" src="assets/decor/blood-splatter-3.png" alt="">
+  <img class="splat s2" src="assets/decor/blood-spray.png" alt="">
+  <img class="splat s3" src="assets/decor/blood-splatter-1.png" alt="">
+
+  <div class="wrap">
+  <header>
+    <p class="kicker">Sombras sobre Londres · 1888</p>
+    <h1>Whitechapel<span class="sub">Mapa · Fichas · Elementos de juego</span></h1>
+    <div class="rule"><span class="dia"></span></div>
+  </header>
+
+  <div class="panel">
+    <div class="toolbar">
+      <span class="meta">Mapa principal · 2526 × 1788 px · 195 ubicaciones · calles, manzanas y casas restauradas</span>
+      <a class="btn" href="assets/whitechapel-map-buildings.jpg" download>⬇ Descargar mapa</a>
+    </div>
+    <div class="map-frame"><img src="assets/whitechapel-map-buildings.jpg" alt="Mapa de Whitechapel con manzanas pobladas de casas y edificios, calles y esquinas en estilo pergamino"></div>
+  </div>
+
+  <!-- TOKENS -->
+  <section class="panel">
+    <div class="sec-head"><h2>Biblioteca de Fichas</h2><span>PNG transparente · listas para el tablero digital</span></div>
+    <div class="grp-label">Peones</div>
+    <div class="grid" id="grid-pawns"></div>
+    <div class="grp-label">Marcadores de Pista</div>
+    <div class="grid" id="grid-markers"></div>
+    <div class="grp-label">Fichas de Tablero</div>
+    <div class="grid" id="grid-board"></div>
+  </section>
+
+  <!-- INVESTIGATOR ELEMENTS -->
+  <section class="panel">
+    <div class="sec-head"><h2>Elementos de las Vistas</h2><span>superficies de juego para Jack y los policías</span></div>
+
+    <div class="grp-label">Jack — Block de seguimiento</div>
+    <div class="feature">
+      <div class="ecard"><img src="assets/elements/jacks-move-track.png" alt="Block de seguimiento de movimientos de Jack"></div>
+      <div class="note">
+        <h3>Jack's Move Track</h3>
+        <p>Block secreto para la vista de Jack: registra su recorrido a lo largo de las <span class="blood-dot">cuatro noches</span> y la casilla del escondite. Pista de número de movimiento y rejilla de anotación.</p>
+        <a class="btn" href="assets/elements/jacks-move-track.png" download>⬇ Descargar PNG</a>
+      </div>
+    </div>
+
+    <div class="grp-label">Policías — Libretas (5 colores)</div>
+    <div class="notebooks" id="grid-notebooks"></div>
+  </section>
+
+  <!-- AMBIANCE -->
+  <section class="panel">
+    <div class="sec-head"><h2>Gráficos de Ambiente</h2><span>para ambientar la interfaz con el estilo del juego</span></div>
+    <div class="grid" id="grid-decor"></div>
+  </section>
+
+  <footer>
+    Rutas, manzanas y ubicaciones derivadas píxel a píxel del tablero original · fondo, fichas y elementos redibujados como arte original.<br>
+    Todos los recursos en <code>assets/</code> — cada pieza es un PNG independiente con fondo transparente.
+  </footer>
+  </div>
+
+<script>
+  const PAWNS=[['jack.png','Jack el Destripador','×1'],['police-blue.png','Policía Azul','×1'],['police-green.png','Policía Verde','×1'],['police-red.png','Policía Rojo','×1'],['police-yellow.png','Policía Amarillo','×1'],['police-purple.png','Policía Morado','×1'],['wretched.png','Mujer (Wretched)','×8']];
+  const MARKERS=[['clue-yellow.png','Pista','amarillo'],['crime-scene-red.png','Escena del crimen','rojo'],['false-clue-blue.png','Pista falsa','azul']];
+  const BOARD=[['woman.png','Mujer de la noche','disco'],['patrol.png','Patrulla','disco'],['coach.png','Carruaje','coach'],['alley.png','Callejón','alley'],['time-of-crime.png','Hora del crimen','reloj']];
+  const NOTEBOOKS=[['police-notebook-blue.png','Azul'],['police-notebook-green.png','Verde'],['police-notebook-red.png','Rojo'],['police-notebook-yellow.png','Amarillo'],['police-notebook-purple.png','Morado']];
+  const DECOR=[['blood-splatter-1.png','Salpicadura I'],['blood-splatter-2.png','Salpicadura II'],['blood-splatter-3.png','Salpicadura III'],['blood-spray.png','Rociado de sangre'],['wax-seal.png','Sello de lacre'],['fingerprint.png','Huella dactilar'],['magnifier.png','Lupa']];
+
+  const tok=(base,[f,nm,qty])=>`<div class="tok"><div class="well"><img src="${base}${f}" alt="${nm}"></div><div class="nm">${nm}</div><div class="qty">${qty}</div></div>`;
+  const render=(id,list,base)=>{document.getElementById(id).innerHTML=list.map(x=>tok(base,x)).join('');};
+  render('grid-pawns',PAWNS,'assets/tokens/');
+  render('grid-markers',MARKERS,'assets/tokens/');
+  render('grid-board',BOARD,'assets/tokens/');
+  render('grid-decor',DECOR,'assets/decor/');
+  document.getElementById('grid-notebooks').innerHTML=NOTEBOOKS.map(([f,nm])=>`<div class="ecard"><img src="assets/elements/${f}" alt="Libreta ${nm}"><div class="nm">Inspector ${nm}</div><div class="qty">×1 por jugador</div></div>`).join('');
+</script>
+</body>
+</html>

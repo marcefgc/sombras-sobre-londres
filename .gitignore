@@ -1,2 +1,15 @@
 node_modules/
 *.pdf
+
+# Config local de Claude Code (no portable)
+.claude/
+
+# Biblioteca de assets fuente: redundante con public/assets (lo que usa el juego)
+docs/assets/
+
+# Imágenes intermedias de la detección del grafo (pesadas). Se conservan solo
+# los JSON del grafo, que build-graph.js necesita para regenerar board-graph.json.
+docs/debug/*.png
+
+# Salidas de pruebas temporales
+test_out.txt
