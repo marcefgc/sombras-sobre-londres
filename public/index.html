@@ -24,6 +24,11 @@
       <option value="det5">Detective 5</option>
       <option value="spectator">Espectador</option>
     </select>
+    <label class="mode-label">MODO DE JUEGO</label>
+    <select id="mode">
+      <option value="manual">Partida — fichas libres (manual)</option>
+      <option value="referee">Aprendizaje — el árbitro valida todo</option>
+    </select>
     <button id="joinBtn">Entrar</button>
   </section>
 
@@ -40,6 +45,7 @@
       <div id="boardWrap">
         <img id="mapImg" src="assets/whitechapel-map-buildings.jpg" alt="Mapa de Whitechapel" />
         <div id="tokenLayer"></div>
+        <div id="nodeLayer" hidden></div>
       </div>
 
       <aside id="sidebar">

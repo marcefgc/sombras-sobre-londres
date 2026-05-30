@@ -104,6 +104,40 @@ button:hover, .btn:hover {
 }
 #mapImg { width: 100%; display: block; user-select: none; }
 #tokenLayer { position: absolute; inset: 0; }
+#nodeLayer { position: absolute; inset: 0; }
+
+/* CAPA DE NODOS (modo Aprendizaje) */
+.gnode {
+  position: absolute; transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.gnode.circle {
+  width: 1.6%; aspect-ratio: 1; border-radius: 50%;
+  background: rgba(180,150,95,.22); border: 1px solid rgba(122,20,15,.55);
+}
+.gnode.square {
+  width: 1.1%; aspect-ratio: 1;
+  background: rgba(30,34,60,.45); border: 1px solid rgba(133,183,235,.45);
+}
+.gnode.legal {
+  background: rgba(110,200,120,.85);
+  border-color: #2f7d3a;
+  box-shadow: 0 0 7px 2px rgba(120,230,130,.7);
+  cursor: pointer; pointer-events: auto;
+}
+.gnode.legal:hover { background: rgba(150,230,160,.95); }
+.gpawn {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 30px; height: 30px; pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.7));
+}
+/* Botón de acción activo en el panel de Aprendizaje */
+button.act-on {
+  background: rgba(122,20,15,.9);
+  border-color: rgba(220,180,120,.9);
+  color: #fff;
+}
+.mode-label { font-size: 12px; letter-spacing: .18em; color: #5a3d22; margin-top: 4px; }
 
 /* FICHAS — imágenes PNG */
 .token {

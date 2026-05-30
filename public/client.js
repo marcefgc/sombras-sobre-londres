@@ -3,7 +3,17 @@ let myRole = null;
 let myName = null;
 let lastState = null;
 
+// Modo Aprendizaje (árbitro): grafo del tablero + acción activa + control de re-build.
+let boardGraph = null;
+let refAction = null;       // jack: startcrime|normal|carriage|alley|lair · policía: move|search|arrest
+let builtForMode = null;    // último modo para el que se construyeron los controles
+
 const $ = (id) => document.getElementById(id);
+
+fetch('assets/board-graph.json')
+  .then((r) => r.json())
+  .then((g) => { boardGraph = g; if (lastState) renderBoard(lastState); })
+  .catch(() => { /* el modo Aprendizaje quedará inactivo si no carga */ });
 
 const POLICE_COLORS = ['blue', 'green', 'red', 'yellow', 'purple'];
 function tokenImg(t) {
@@ -22,10 +32,11 @@ $('joinBtn').onclick = () => {
   myName = $('name').value.trim() || 'Jugador';
   myRole = $('role').value;
   socket.emit('join', { name: myName, role: myRole });
+  socket.emit('setMode', { mode: $('mode').value });
   $('lobby').hidden = true;
   $('game').hidden = false;
   $('jackPanel').hidden = myRole !== 'jack';
-  buildControls();
+  // Los controles se construyen al llegar el primer estado (conociendo el modo real).
 };
 
 $('resetBtn').onclick = () => {
@@ -35,17 +46,28 @@ $('resetBtn').onclick = () => {
 socket.on('state', (state) => {
   lastState = state;
   renderStatus(state);
-  renderTokens(state);
+  renderBoard(state);
   renderLog(state);
   renderJackPanel(state);
+  if (state.game.mode !== builtForMode) { builtForMode = state.game.mode; buildControls(); }
 });
 
 function renderStatus(s) {
   const phases = { lobby: 'Lobby', 'crime-prep': 'Preparación del crimen',
                    hunt: 'La caza', ended: 'Partida terminada' };
+  const modeTag = s.game.mode === 'referee' ? '[Aprendizaje] ' : '[Partida] ';
   $('nightLabel').textContent = 'Noche ' + s.game.night + ' / 4';
-  $('phaseLabel').textContent = phases[s.game.phase] || s.game.phase;
+  $('phaseLabel').textContent = modeTag + (phases[s.game.phase] || s.game.phase);
   $('movesLabel').textContent = 'Movimientos de Jack: ' + s.game.jackMoves + ' / 15';
+}
+
+// Despacha el render del tablero según el modo: fichas arrastrables (Partida) o
+// la capa de nodos clicable (Aprendizaje).
+function renderBoard(state) {
+  const refMode = state.game.mode === 'referee';
+  $('nodeLayer').hidden = !refMode;
+  $('tokenLayer').style.display = refMode ? 'none' : '';
+  if (refMode) renderNodes(state); else renderTokens(state);
 }
 
 function renderLog(s) {
@@ -125,8 +147,77 @@ function makeDraggable(el, id) {
   };
 }
 
+// ---- Modo Aprendizaje: tablero de nodos clicable ----
+function policePawnImg(who) {
+  const n = parseInt(String(who).replace('det', ''), 10);
+  const color = POLICE_COLORS[(Number.isNaN(n) ? 1 : n) - 1] || 'blue';
+  return 'assets/tokens/police-' + color + '.png';
+}
+function addPawn(layer, node, src) {
+  const p = document.createElement('img');
+  p.className = 'gpawn';
+  p.src = src;
+  p.style.left = node.x + '%';
+  p.style.top = node.y + '%';
+  layer.appendChild(p);
+}
+function highlightSets(state) {
+  const ref = state.ref || {};
+  const circleHi = new Set(); const squareHi = new Set();
+  if (myRole === 'jack') {
+    const L = ref.legal || {};
+    if (refAction === 'startcrime') (boardGraph.crimeStarts || []).forEach((c) => circleHi.add(c));
+    else if (refAction === 'normal') (L.normal || []).forEach((c) => circleHi.add(c));
+    else if (refAction === 'carriage') (L.carriage || []).forEach((c) => circleHi.add(c));
+    else if (refAction === 'alley') (L.alley || []).forEach((c) => circleHi.add(c));
+    else if (refAction === 'lair') boardGraph.nodes.forEach((n) => { if (n.type === 'circle') circleHi.add(n.id); });
+  } else if (myRole && myRole.startsWith('det')) {
+    if (refAction === 'move') (ref.legalSquares || []).forEach((s) => squareHi.add(s));
+    else if (refAction === 'search' || refAction === 'arrest') (ref.searchable || []).forEach((c) => circleHi.add(c));
+  }
+  return { circleHi, squareHi };
+}
+function renderNodes(state) {
+  const layer = $('nodeLayer');
+  layer.innerHTML = '';
+  if (!boardGraph) return;
+  const { circleHi, squareHi } = highlightSets(state);
+  for (const n of boardGraph.nodes) {
+    const el = document.createElement('div');
+    el.className = 'gnode ' + n.type;
+    el.style.left = n.x + '%';
+    el.style.top = n.y + '%';
+    const hi = n.type === 'circle' ? circleHi.has(n.id) : squareHi.has(n.id);
+    if (hi) { el.classList.add('legal'); el.onclick = () => onNodeClick(n); }
+    layer.appendChild(el);
+  }
+  const ref = state.ref || {};
+  for (const [who, sq] of Object.entries(ref.police || {})) {
+    const node = boardGraph.nodes[sq];
+    if (node) addPawn(layer, node, policePawnImg(who));
+  }
+  if (myRole === 'jack' && ref.jackCircle != null) {
+    const node = boardGraph.nodes[ref.jackCircle];
+    if (node) addPawn(layer, node, 'assets/tokens/jack.png');
+  }
+}
+function onNodeClick(n) {
+  if (myRole === 'jack') {
+    if (refAction === 'startcrime') socket.emit('ref:startCrime', { circle: n.id });
+    else if (refAction === 'lair') socket.emit('jack:setLair', { circle: n.id });
+    else if (refAction === 'normal' || refAction === 'carriage' || refAction === 'alley') {
+      socket.emit('ref:moveJack', { circle: n.id, kind: refAction });
+    }
+  } else if (myRole && myRole.startsWith('det')) {
+    if (refAction === 'move') socket.emit('ref:movePolice', { square: n.id });
+    else if (refAction === 'search') socket.emit('ref:search', { circle: n.id });
+    else if (refAction === 'arrest') socket.emit('ref:arrest', { circle: n.id });
+  }
+}
+
 function renderJackPanel(s) {
   if (myRole !== 'jack' || !s.jack) return;
+  if (s.game.mode === 'referee') return renderJackPanelReferee(s);
   const p = $('jackPanel');
   const lair = s.jack.lair == null ? '(sin fijar)' : s.jack.lair;
   const pathStr = (s.jack.path || []).map((x) =>
@@ -166,7 +257,30 @@ function renderJackPanel(s) {
   $('reachedLairBtn').onclick = () => socket.emit('jack:reachedLair');
 }
 
+function renderJackPanelReferee(s) {
+  const p = $('jackPanel');
+  const ref = s.ref || {};
+  const lair = s.jack.lair == null ? '(sin fijar — usa "Fijar guarida")' : s.jack.lair;
+  const pos = ref.jackCircle == null ? '—' : ref.jackCircle;
+  const pathStr = (s.jack.path || []).map((x) =>
+    x.circle + (x.special ? '(' + (x.special === 'carriage' ? 'C' : 'A') + ')' : '')
+  ).join(' → ');
+  p.innerHTML = `
+    <h3>Panel de Jack (Aprendizaje)</h3>
+    <div>Guarida: <strong>${lair}</strong></div>
+    <div>Posición actual: <strong>${pos}</strong></div>
+    <div>Carruajes: <strong>${s.jack.carriages}</strong> · Callejones: <strong>${s.jack.alleys}</strong></div>
+    <div><small>Mueve eligiendo una acción y haciendo click en un círculo resaltado.</small></div>
+    <div><small>Ruta de esta noche:</small><br/>${pathStr || '—'}</div>
+    <hr/>
+    <div class="row"><button id="reachedLairBtn">Llegué a mi guarida (fin de noche)</button></div>
+  `;
+  $('reachedLairBtn').onclick = () => socket.emit('jack:reachedLair');
+}
+
 function buildControls() {
+  const mode = lastState ? lastState.game.mode : 'manual';
+  if (mode === 'referee') return buildRefControls();
   const c = $('controls');
   if (myRole === 'spectator') { c.innerHTML = '<em>Modo espectador</em>'; return; }
   c.innerHTML = '<h3>Acciones</h3>';
@@ -242,6 +356,45 @@ function buildControls() {
     };
   }
 }
+
+function buildRefControls() {
+  const c = $('controls');
+  c.innerHTML = '<h3>Acciones (Aprendizaje)</h3>';
+  if (myRole === 'spectator') { c.innerHTML += '<em>Observas la partida.</em>'; return; }
+  const setAct = (a, btn) => {
+    refAction = a;
+    for (const b of c.querySelectorAll('button[data-act]')) b.classList.toggle('act-on', b === btn);
+    if (lastState) renderNodes(lastState);
+  };
+  const mk = (label, act) => {
+    const b = document.createElement('button');
+    b.textContent = label; b.dataset.act = act;
+    b.onclick = () => setAct(act, b);
+    return b;
+  };
+  const row = (...els) => { const r = document.createElement('div'); r.className = 'row'; els.forEach((e) => r.appendChild(e)); c.appendChild(r); };
+
+  if (myRole === 'jack') {
+    row(mk('Elegir crimen', 'startcrime'));
+    row(mk('Mover', 'normal'), mk('Carruaje', 'carriage'), mk('Callejón', 'alley'));
+    row(mk('Fijar guarida', 'lair'));
+  } else if (myRole && myRole.startsWith('det')) {
+    row(mk('Mover', 'move'), mk('Buscar pista', 'search'), mk('Arrestar', 'arrest'));
+  }
+
+  // Fases compartidas (no espectador)
+  const pr = document.createElement('div'); pr.className = 'row';
+  pr.innerHTML = '<button id="nightBtn">Siguiente noche</button><button id="dawnBtn">Amanecer</button>';
+  c.appendChild(pr);
+  document.getElementById('nightBtn').onclick = () => socket.emit('phase:nextNight');
+  document.getElementById('dawnBtn').onclick = () => { if (confirm('¿Declarar el amanecer? Si Jack no llegó a su guarida, gana la policía.')) socket.emit('phase:dawn'); };
+}
+
+socket.on('ref:rejected', ({ reason }) => {
+  const li = document.createElement('li');
+  li.textContent = '⛔ ' + (reason || 'movimiento rechazado');
+  $('log').prepend(li);
+});
 
 socket.on('clue:asked', ({ circle }) => {
   const li = document.createElement('li');
