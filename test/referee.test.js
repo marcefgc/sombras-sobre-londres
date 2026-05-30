@@ -42,12 +42,21 @@ test('moveJack normal se bloquea si un policía ocupa el cuadrado via', () => {
 
 test('moveJack carruaje cruza bloqueo y llega a 2 saltos', () => {
   const s = refGame();
+  // Elegir un origen que tenga (a) una arista bloqueable para colocar el bloqueo
+  // y (b) un destino alcanzable en 2 saltos que no sea hoja (carruaje legítimo).
+  const carriageTargets = (from) => {
+    const set = new Set();
+    for (const n of B.neighbors(from)) for (const m of B.neighbors(n.circle)) if (m.circle !== from) set.add(m.circle);
+    return [...set];
+  };
   let from = -1, to = -1, via = null;
   for (let i = 0; i < 195 && from < 0; i++) {
-    for (const n of B.neighbors(i)) if (n.via != null) { from = i; to = n.circle; via = n.via; break; }
+    const blocked = B.neighbors(i).find((n) => n.via != null);
+    const ct = carriageTargets(i).filter((c) => c !== i);
+    if (blocked && ct.length) { from = i; via = blocked.via; to = ct[0]; }
   }
   R.startCrimeAt(s, from);
-  s.ref.police['det1'] = via;
+  s.ref.police['det1'] = via; // hay un bloqueo en el tablero; el carruaje lo ignora
   assert.strictEqual(R.moveJack(s, to, 'carriage').ok, true);
   assert.strictEqual(s.jack.carriages, 1);
 });
