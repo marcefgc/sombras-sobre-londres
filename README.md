@@ -10,12 +10,18 @@ Versión web para jugar *Letters from Whitechapel* entre amigos en la misma WiFi
 2. **Averigua tu IP local:** abre una terminal y ejecuta `ipconfig`; busca la "Dirección IPv4" (algo como `192.168.1.X`).
 3. Si Windows muestra un aviso de **Firewall**, permite el acceso en redes privadas.
 4. **Los demás jugadores** (en la misma WiFi) abren en su navegador: `http://TU-IP:3000`.
-5. Cada quien pone su nombre y elige rol: Jack, Detective 1–5 o Espectador.
+5. Cada quien pone su nombre, elige rol (Jack, Detective 1–5 o Espectador) **y modo de juego**.
+
+## Dos modos de juego
+Se elige en el lobby (lo fija quien configura la partida):
+
+- **Partida (manual):** tablero con **fichas arrastrables** sobre el mapa. Los jugadores aplican las reglas de movimiento entre ellos (a ojo); el servidor sólo oculta la info de Jack y verifica pistas/arrestos cuando se le pregunta por número. Es la experiencia "de mesa" a distancia.
+- **Aprendizaje (árbitro):** el tablero muestra los **círculos y cuadrados clicables**. El servidor **valida cada movimiento** (adyacencia y bloqueos de la policía) y resuelve **pistas y arrestos automáticamente**. Ideal para aprender las reglas antes de jugar el modo Partida. Jack mueve eligiendo una acción (Mover/Carruaje/Callejón) y haciendo click en un destino resaltado; la policía mueve por cuadrados y luego busca/arresta en círculos adyacentes.
+  - Nota: el grafo del tablero se derivó automáticamente del mapa original; puede tener imperfecciones menores. El callejón es una versión simplificada (salto a un círculo cercano).
 
 ## Reglas y alcance
-- El tablero es **asistido**: muestra el mapa con fichas arrastrables y oculta la info de Jack.
-- El servidor verifica **pistas y arrestos** automáticamente y guarda en secreto la ruta y la guarida de Jack.
-- Adyacencias, bloqueos, carruajes y callejones se aplican **entre jugadores** (a ojo).
+- El servidor guarda en secreto la ruta y la guarida de Jack y nunca las envía a los demás.
+- En modo Partida, adyacencias/bloqueos/especiales se aplican entre jugadores; en modo Aprendizaje los valida el programa.
 
 ## Cómo se juega (resumen del flujo en pantalla)
 1. **Jack** fija su **guarida** secreta (panel privado) antes de la noche 1.
