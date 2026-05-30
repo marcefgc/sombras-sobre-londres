@@ -5,6 +5,19 @@ let lastState = null;
 
 const $ = (id) => document.getElementById(id);
 
+const POLICE_COLORS = ['blue', 'green', 'red', 'yellow', 'purple'];
+function tokenImg(t) {
+  if (t.type === 'detective') {
+    const n = parseInt(t.label, 10);
+    const color = POLICE_COLORS[(Number.isNaN(n) ? 1 : n) - 1] || 'blue';
+    return 'assets/tokens/police-' + color + '.png';
+  }
+  if (t.type === 'crime') return 'assets/tokens/crime-scene-red.png';
+  if (t.type === 'clue') return 'assets/tokens/clue-yellow.png';
+  if (t.type === 'victim') return 'assets/tokens/woman.png';
+  return 'assets/tokens/patrol.png';
+}
+
 $('joinBtn').onclick = () => {
   myName = $('name').value.trim() || 'Jugador';
   myRole = $('role').value;
@@ -67,7 +80,11 @@ function renderTokens(s) {
     const el = document.createElement('div');
     el.className = 'token ' + t.type;
     el.dataset.id = t.id;
-    el.textContent = t.label || '';
+    const img = document.createElement('img');
+    img.src = tokenImg(t);
+    img.alt = t.type + (t.label ? ' ' + t.label : '');
+    img.draggable = false;
+    el.appendChild(img);
     el.style.left = t.x + '%';
     el.style.top = t.y + '%';
     if (myRole !== 'spectator') makeDraggable(el, t.id);
