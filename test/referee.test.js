@@ -58,35 +58,35 @@ test('moveJack carruaje llega a 2 saltos por un intermedio libre', () => {
   assert.strictEqual(s.jack.carriages, 1);
 });
 
-test('moveJack carruaje respeta el bloqueo policial del tramo intermedio', () => {
+test('moveJack carruaje CRUZA el bloqueo policial del tramo intermedio (su ventaja)', () => {
   const s = refGame();
-  // Buscar un destino a 2 saltos cuyo ÚNICO intermedio sea un vecino conectado
-  // por un cuadrado bloqueable: al ocupar ese cuadrado, el carruaje no debe poder
-  // pasar (en el juego real el carruaje son dos movimientos y la policía bloquea
-  // el paso intermedio).
-  let from = -1, n1 = -1, via1 = null, to = -1;
+  // Buscar un destino a 2 saltos cuyo ÚNICO intermedio se conecta por un cuadrado
+  // bloqueable. Según las reglas (Whitechapel.md), el carruaje es la jugada que
+  // permite cruzar un cuadrado ocupado por un policía: aun con el bloqueo, el
+  // destino debe seguir siendo alcanzable en carruaje.
+  let from = -1, via1 = null, to = -1;
   outer:
   for (let i = 0; i < 195; i++) {
     for (const a of B.neighbors(i)) {
-      if (a.via == null) continue;               // primer tramo bloqueable
+      if (a.via == null) continue;               // primer tramo con cuadrado bloqueable
       for (const b of B.neighbors(a.circle)) {
         if (b.circle === i) continue;            // destino real a 2 saltos
         // ¿Existe OTRO intermedio de `i` que también alcance `b`? Si no, el único
-        // camino pasa por `a` y bloquear su cuadrado deja a `b` inalcanzable.
+        // camino pasa por `a`: probar el bloqueo sobre ese cuadrado es significativo.
         const otroCamino = B.neighbors(i).some((x) =>
           x.circle !== a.circle && B.neighbors(x.circle).some((y) => y.circle === b.circle));
-        if (!otroCamino) { from = i; n1 = a.circle; via1 = a.via; to = b.circle; break outer; }
+        if (!otroCamino) { from = i; via1 = a.via; to = b.circle; break outer; }
       }
     }
   }
   assert.ok(from >= 0, 'el tablero debe tener un destino de un solo intermedio bloqueable');
   R.startCrimeAt(s, from);
-  // Sin bloqueo el carruaje sí puede llegar.
+  // Sin bloqueo el carruaje llega.
   assert.ok(R.legalCarriageTargets(s).includes(to));
-  // Con la policía en el cuadrado intermedio, el destino deja de ser legal.
+  // Con la policía en el cuadrado intermedio, el carruaje IGUAL puede pasar.
   s.ref.police['det1'] = via1;
-  assert.ok(!R.legalCarriageTargets(s).includes(to));
-  assert.strictEqual(R.moveJack(s, to, 'carriage').ok, false);
+  assert.ok(R.legalCarriageTargets(s).includes(to));
+  assert.strictEqual(R.moveJack(s, to, 'carriage').ok, true);
 });
 
 test('moveJack se rechaza cuando se agotaron los 15 movimientos de la noche', () => {

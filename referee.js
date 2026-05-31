@@ -23,17 +23,14 @@ function legalNormalTargets(state) {
 }
 function legalCarriageTargets(state) {
   const from = state.ref.jackCircle;
-  const occ = occupiedSquares(state);
   const set = new Set();
-  // El carruaje son dos movimientos encadenados; la policía puede bloquear el
-  // cuadrado `via` de cualquiera de los dos tramos. Un destino solo es legal si
-  // existe algún intermedio con AMBOS tramos libres.
+  // El carruaje es la jugada de escape de Jack: avanza 2 círculos en un turno y,
+  // su gran ventaja, PUEDE cruzar cuadrados ocupados por la policía (Whitechapel.md).
+  // Por eso NO se filtran los cuadrados bloqueados: cualquier destino a 2 saltos
+  // es legal, lo bloqueen o no.
   for (const n of B.neighbors(from)) {
-    if (n.via != null && occ.has(n.via)) continue;        // primer tramo bloqueado
     for (const m of B.neighbors(n.circle)) {
-      if (m.circle === from) continue;
-      if (m.via != null && occ.has(m.via)) continue;      // segundo tramo bloqueado
-      set.add(m.circle);
+      if (m.circle !== from) set.add(m.circle);
     }
   }
   return [...set];

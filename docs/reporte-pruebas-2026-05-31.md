@@ -120,10 +120,11 @@ Verificado contra el HEAD actual antes de tocar nada (método sistemático):
   Aprendizaje (la noche avanza sola al llegar a la guarida).
 - Suite: **64/64 verdes**.
 
-### Hallazgo pendiente de decisión — regla del carruaje
-`legalCarriageTargets` fue modificado (en `fd38040`) para que el carruaje **respete**
-el bloqueo policial del tramo intermedio, con un test que lo afirma. Esto **contradice**
-las reglas del propio `Whitechapel.md` del proyecto: *"El Carruaje… ¡Su gran ventaja!
-Permite cruzar un cuadrado negro que esté ocupado por un policía."* Es decir, el carruaje
-debería **ignorar** el bloqueo (es su razón de ser). Queda señalado para que el dueño del
-proyecto decida si se revierte a la regla documentada.
+### Regla del carruaje — CORREGIDO
+`legalCarriageTargets` había sido modificado (en `fd38040`) para que el carruaje
+**respetara** el bloqueo policial del tramo intermedio, lo que contradecía las reglas del
+propio `Whitechapel.md`: *"El Carruaje… ¡Su gran ventaja! Permite cruzar un cuadrado
+negro que esté ocupado por un policía."* Se revirtió a la regla documentada: el carruaje
+**ignora** los bloqueos y cualquier destino a 2 saltos es legal. El test se reescribió
+para afirmar que el carruaje **cruza** el bloqueo (`moveJack carruaje CRUZA el bloqueo…`).
+Suite: 64/64 verdes.
