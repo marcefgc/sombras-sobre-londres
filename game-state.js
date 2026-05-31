@@ -1,11 +1,24 @@
 const CARRIAGES_PER_NIGHT = 2;
 const ALLEYS_PER_NIGHT = 3;
 const TOTAL_NIGHTS = 4;
+const MOVES_PER_NIGHT = 15;
+
+// La noche se agota cuando Jack consumió sus 15 movimientos (el crimen es el
+// paso 0 y no cuenta). A partir de aquí no puede moverse más: o llegó a su
+// guarida o amanece y gana la policía.
+function movesExhausted(state) { return state.game.jackMoves >= MOVES_PER_NIGHT; }
+
+// Roles de los que solo puede haber UNO a la vez. El espectador no tiene límite.
+const SINGULAR_ROLES = ['jack', 'det1', 'det2', 'det3', 'det4', 'det5'];
 
 function createGame() {
   return {
     game: { night: 1, phase: 'lobby', jackMoves: 0, turn: 'jack', mode: 'manual' },
     players: {},
+    // Reserva de cada rol singular por nombre. Persiste tras una desconexión para
+    // permitir reconexión por nombre y, a la vez, impedir que otro jugador se
+    // apropie de un rol (y con él, p. ej., la información secreta de Jack).
+    roleClaims: {},
     tokens: [],
     jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT },
     ref: { jackCircle: null, police: {} },
@@ -18,7 +31,23 @@ function setMode(state, mode) {
   state.game.mode = m;
   state.ref = { jackCircle: null, police: {} };
 }
-function addPlayer(state, socketId, name, role) { state.players[socketId] = { name, role }; }
+// Devuelve { ok } o { ok:false, reason }. Valida nombre no vacío (#9), unicidad
+// de rol (#8) y reconexión por nombre (#7).
+function addPlayer(state, socketId, name, role) {
+  const clean = String(name == null ? '' : name).trim();
+  if (!clean) return { ok: false, reason: 'nombre requerido' };
+  if (SINGULAR_ROLES.includes(role)) {
+    const taken = Object.values(state.players).some((p) => p.role === role);
+    if (taken) return { ok: false, reason: 'rol ya ocupado' };
+    const claim = state.roleClaims[role];
+    if (claim != null && claim !== clean) return { ok: false, reason: 'rol reservado por otro jugador' };
+    state.roleClaims[role] = clean;
+  }
+  state.players[socketId] = { name: clean, role };
+  return { ok: true };
+}
+// No se borra la reserva del rol: así el mismo nombre puede reconectar y nadie
+// más puede tomar ese rol mientras la partida sigue.
 function removePlayer(state, socketId) { delete state.players[socketId]; }
 
 function upsertToken(state, token) {
@@ -87,4 +116,4 @@ function viewFor(state, role) {
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, movesExhausted, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };

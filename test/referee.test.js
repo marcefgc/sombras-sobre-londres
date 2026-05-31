@@ -40,25 +40,64 @@ test('moveJack normal se bloquea si un policía ocupa el cuadrado via', () => {
   assert.match(r.reason, /bloque/i);
 });
 
-test('moveJack carruaje cruza bloqueo y llega a 2 saltos', () => {
+test('moveJack carruaje llega a 2 saltos por un intermedio libre', () => {
   const s = refGame();
-  // Elegir un origen que tenga (a) una arista bloqueable para colocar el bloqueo
-  // y (b) un destino alcanzable en 2 saltos que no sea hoja (carruaje legítimo).
   const carriageTargets = (from) => {
     const set = new Set();
     for (const n of B.neighbors(from)) for (const m of B.neighbors(n.circle)) if (m.circle !== from) set.add(m.circle);
     return [...set];
   };
-  let from = -1, to = -1, via = null;
+  // Origen con al menos un destino a 2 saltos y SIN bloqueos (todo libre).
+  let from = -1, to = -1;
   for (let i = 0; i < 195 && from < 0; i++) {
-    const blocked = B.neighbors(i).find((n) => n.via != null);
     const ct = carriageTargets(i).filter((c) => c !== i);
-    if (blocked && ct.length) { from = i; via = blocked.via; to = ct[0]; }
+    if (ct.length) { from = i; to = ct[0]; }
   }
   R.startCrimeAt(s, from);
-  s.ref.police['det1'] = via; // hay un bloqueo en el tablero; el carruaje lo ignora
   assert.strictEqual(R.moveJack(s, to, 'carriage').ok, true);
   assert.strictEqual(s.jack.carriages, 1);
+});
+
+test('moveJack carruaje respeta el bloqueo policial del tramo intermedio', () => {
+  const s = refGame();
+  // Buscar un destino a 2 saltos cuyo ÚNICO intermedio sea un vecino conectado
+  // por un cuadrado bloqueable: al ocupar ese cuadrado, el carruaje no debe poder
+  // pasar (en el juego real el carruaje son dos movimientos y la policía bloquea
+  // el paso intermedio).
+  let from = -1, n1 = -1, via1 = null, to = -1;
+  outer:
+  for (let i = 0; i < 195; i++) {
+    for (const a of B.neighbors(i)) {
+      if (a.via == null) continue;               // primer tramo bloqueable
+      for (const b of B.neighbors(a.circle)) {
+        if (b.circle === i) continue;            // destino real a 2 saltos
+        // ¿Existe OTRO intermedio de `i` que también alcance `b`? Si no, el único
+        // camino pasa por `a` y bloquear su cuadrado deja a `b` inalcanzable.
+        const otroCamino = B.neighbors(i).some((x) =>
+          x.circle !== a.circle && B.neighbors(x.circle).some((y) => y.circle === b.circle));
+        if (!otroCamino) { from = i; n1 = a.circle; via1 = a.via; to = b.circle; break outer; }
+      }
+    }
+  }
+  assert.ok(from >= 0, 'el tablero debe tener un destino de un solo intermedio bloqueable');
+  R.startCrimeAt(s, from);
+  // Sin bloqueo el carruaje sí puede llegar.
+  assert.ok(R.legalCarriageTargets(s).includes(to));
+  // Con la policía en el cuadrado intermedio, el destino deja de ser legal.
+  s.ref.police['det1'] = via1;
+  assert.ok(!R.legalCarriageTargets(s).includes(to));
+  assert.strictEqual(R.moveJack(s, to, 'carriage').ok, false);
+});
+
+test('moveJack se rechaza cuando se agotaron los 15 movimientos de la noche', () => {
+  const s = refGame();
+  const c = B.data.crimeStarts[0];
+  R.startCrimeAt(s, c);
+  s.game.jackMoves = G.MOVES_PER_NIGHT; // noche agotada
+  const nb = B.neighbors(c)[0].circle;
+  const r = R.moveJack(s, nb, 'normal');
+  assert.strictEqual(r.ok, false);
+  assert.match(r.reason, /noche|agot/i);
 });
 
 test('movePolice valida distancia <=2 y no terminar sobre otro policía', () => {

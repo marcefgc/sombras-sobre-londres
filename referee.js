@@ -23,8 +23,19 @@ function legalNormalTargets(state) {
 }
 function legalCarriageTargets(state) {
   const from = state.ref.jackCircle;
+  const occ = occupiedSquares(state);
   const set = new Set();
-  for (const n of B.neighbors(from)) for (const m of B.neighbors(n.circle)) if (m.circle !== from) set.add(m.circle);
+  // El carruaje son dos movimientos encadenados; la policía puede bloquear el
+  // cuadrado `via` de cualquiera de los dos tramos. Un destino solo es legal si
+  // existe algún intermedio con AMBOS tramos libres.
+  for (const n of B.neighbors(from)) {
+    if (n.via != null && occ.has(n.via)) continue;        // primer tramo bloqueado
+    for (const m of B.neighbors(n.circle)) {
+      if (m.circle === from) continue;
+      if (m.via != null && occ.has(m.via)) continue;      // segundo tramo bloqueado
+      set.add(m.circle);
+    }
+  }
   return [...set];
 }
 function legalAlleyTargets(state) {
@@ -39,6 +50,7 @@ function legalAlleyTargets(state) {
 
 function moveJack(state, circle, kind) {
   if (state.ref.jackCircle == null) return { ok: false, reason: 'sin posición' };
+  if (G.movesExhausted(state)) return { ok: false, reason: 'se agotó la noche (15 movimientos)' };
   let legal, special = null;
   if (kind === 'carriage') {
     if (state.jack.carriages <= 0) return { ok: false, reason: 'sin carruajes' };

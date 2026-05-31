@@ -4,6 +4,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const G = require('./game-state');
 const R = require('./referee');
+const B = require('./board-graph');
 
 function createServer() {
   const app = express();
@@ -62,7 +63,8 @@ function createServer() {
     }
 
     socket.on('join', ({ name, role }) => {
-      G.addPlayer(state, socket.id, name, role);
+      const r = G.addPlayer(state, socket.id, name, role);
+      if (!r.ok) { socket.emit('join:rejected', { reason: r.reason }); return; }
       const json = JSON.stringify(viewForRole(role));
       lastSent.set(socket.id, json);
       socket.emit('state', JSON.parse(json));
@@ -83,17 +85,32 @@ function createServer() {
     });
     socket.on('jack:logStep', ({ circle, special }) => {
       if (roleOf() !== 'jack' || manualOnly()) return;
+      if (G.movesExhausted(state)) { // #1: el servidor impone el límite de la noche
+        state.log.push('La noche está agotada (15 movimientos). Declara el amanecer.');
+        sendStates();
+        return;
+      }
       G.logJackStep(state, circle, special); sendStates();
     });
-    socket.on('phase:crimePrep', () => { G.startCrimePrep(state); sendStates(); });
+    socket.on('phase:crimePrep', () => {
+      if (roleOf() !== 'jack') return; // #3: solo Jack controla el avance de fase
+      G.startCrimePrep(state); sendStates();
+    });
     socket.on('phase:startCrime', ({ circle }) => {
       if (roleOf() !== 'jack' || manualOnly()) return;
+      const n = B.node(circle); // #10: el crimen debe caer en un círculo real del tablero
+      if (!n || n.type !== 'circle') { socket.emit('ref:rejected', { reason: 'el crimen debe ser un círculo válido' }); return; }
       G.startCrime(state, circle); sendStates();
     });
-    socket.on('phase:nextNight', () => { G.nextNight(state); sendStates(); });
+    socket.on('phase:nextNight', () => {
+      if (roleOf() !== 'jack') return; // #3: solo Jack avanza la noche
+      G.nextNight(state); sendStates();
+    });
     socket.on('reset', () => {
+      if (roleOf() !== 'jack') return; // #4: solo Jack puede reiniciar la partida
       const fresh = G.createGame();
       fresh.players = state.players;
+      fresh.roleClaims = state.roleClaims; // conservar reservas de rol de los conectados
       Object.assign(state, fresh);
       sendStates();
     });
@@ -117,8 +134,17 @@ function createServer() {
     });
 
     // Amanecer: se agotaron los 15 turnos de la noche y Jack no llegó a su
-    // guarida → gana la policía (lo deja atrapado fuera al amanecer).
+    // guarida → gana la policía (lo deja atrapado fuera al amanecer). #2: solo
+    // un jugador (no espectador) puede declararlo, únicamente en plena caza y
+    // cuando la noche realmente se agotó. Antes cualquiera ganaba al instante.
     socket.on('phase:dawn', () => {
+      const role = roleOf();
+      const isPlayer = role === 'jack' || (role && role.startsWith('det'));
+      if (!isPlayer || state.game.phase !== 'hunt' || !G.movesExhausted(state)) {
+        state.log.push('Amanecer rechazado: solo al agotarse la noche en plena caza.');
+        sendStates();
+        return;
+      }
       G.endGame(state, 'Policía');
       sendStates();
     });

@@ -396,6 +396,16 @@ socket.on('ref:rejected', ({ reason }) => {
   $('log').prepend(li);
 });
 
+// El servidor rechazó la entrada (rol ocupado, nombre vacío o rol reservado por
+// otro jugador). Volvemos al lobby para que el jugador elija otra cosa.
+socket.on('join:rejected', ({ reason }) => {
+  alert('No se pudo entrar: ' + (reason || 'rol no disponible') + '. Prueba con otro rol o nombre.');
+  $('game').hidden = true;
+  $('jackPanel').hidden = true;
+  $('lobby').hidden = false;
+  myRole = null;
+});
+
 socket.on('clue:asked', ({ circle }) => {
   const li = document.createElement('li');
   li.textContent = '👁️ Te preguntaron por el ' + circle;

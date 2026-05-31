@@ -154,18 +154,109 @@ test('jack:reachedLair avanza la noche y, en la noche 4, hace ganar a Jack', asy
   await new Promise((r) => server.close(r));
 });
 
-test('phase:dawn termina con victoria policial', async () => {
+test('phase:dawn solo termina la partida con la noche agotada en fase de caza', async () => {
   const { server } = createServer();
   await new Promise((r) => server.listen(0, r));
   const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
   const det = Client(`http://localhost:${port}`);
-  const detW = stateWaiter(det);
+  const jackW = stateWaiter(jack), detW = stateWaiter(det);
+  jack.emit('join', { name: 'J', role: 'jack' });
   det.emit('join', { name: 'D', role: 'det1' });
-  await detW.wait();
+  await jackW.wait(); await detW.wait();
+
+  // (a) Desde el lobby un detective NO puede declarar el amanecer.
+  det.emit('phase:dawn');
+  await detW.wait((s) => s.log.some((l) => l.includes('rechaz')));
+  assert.notStrictEqual(detW.latest.game.phase, 'ended');
+
+  // Comienza la caza; aún quedan turnos -> el amanecer sigue rechazado.
+  jack.emit('phase:startCrime', { circle: 7 });
+  await jackW.wait((s) => s.game.phase === 'hunt');
+  det.emit('phase:dawn');
+  await detW.wait((s) => s.log.filter((l) => l.includes('rechaz')).length >= 2);
+  assert.notStrictEqual(detW.latest.game.phase, 'ended');
+
+  // Se agotan los 15 movimientos -> ahora sí gana la policía.
+  for (let i = 0; i < 15; i++) jack.emit('jack:logStep', { circle: 8, special: null });
+  await jackW.wait((s) => s.game.jackMoves === 15);
   det.emit('phase:dawn');
   const v = await detW.wait((s) => s.game.phase === 'ended');
   assert.ok(v.log.some((l) => l.includes('Policía')));
-  det.close();
+  jack.close(); det.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('el servidor impone el límite de 15 movimientos en modo manual', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('phase:startCrime', { circle: 7 });
+  await jackW.wait((s) => s.game.phase === 'hunt');
+  for (let i = 0; i < 20; i++) jack.emit('jack:logStep', { circle: 8, special: null });
+  await jackW.wait((s) => s.game.jackMoves >= 15);
+  // Da tiempo a que el servidor procese los 20 intentos y se estabilice en 15.
+  await new Promise((r) => setTimeout(r, 50));
+  assert.strictEqual(jackW.latest.game.jackMoves, 15);
+  jack.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('phase:nextNight y reset solo los puede ejecutar Jack', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const det = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack), detW = stateWaiter(det);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  det.emit('join', { name: 'D', role: 'det1' });
+  await jackW.wait(); await detW.wait();
+  // Un detective no avanza la noche.
+  det.emit('phase:nextNight');
+  await new Promise((r) => setTimeout(r, 50));
+  assert.strictEqual(jackW.latest.game.night, 1);
+  // Jack sí.
+  jack.emit('phase:nextNight');
+  await jackW.wait((s) => s.game.night === 2);
+  assert.strictEqual(jackW.latest.game.night, 2);
+  jack.close(); det.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('join rechaza un segundo jugador en el mismo rol y avisa', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const a = Client(`http://localhost:${port}`);
+  const b = Client(`http://localhost:${port}`);
+  const aW = stateWaiter(a);
+  a.emit('join', { name: 'Ana', role: 'det1' });
+  await aW.wait();
+  const rejected = once(b, 'join:rejected');
+  b.emit('join', { name: 'Beto', role: 'det1' });
+  const r = await rejected;
+  assert.ok(r.reason);
+  a.close(); b.close();
+  await new Promise((r) => server.close(r));
+});
+
+test('phase:startCrime manual rechaza un número que no es círculo', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('phase:startCrime', { circle: 99999 }); // no existe en el tablero
+  await new Promise((r) => setTimeout(r, 50));
+  assert.notStrictEqual(jackW.latest.game.phase, 'hunt');
+  jack.close();
   await new Promise((r) => server.close(r));
 });
 

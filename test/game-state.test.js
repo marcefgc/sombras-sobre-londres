@@ -17,10 +17,40 @@ test('createGame tiene valores por defecto', () => {
 
 test('addPlayer y removePlayer', () => {
   const s = G.createGame();
-  G.addPlayer(s, 'sock1', 'Ana', 'det1');
+  const r = G.addPlayer(s, 'sock1', 'Ana', 'det1');
+  assert.strictEqual(r.ok, true);
   assert.deepStrictEqual(s.players['sock1'], { name: 'Ana', role: 'det1' });
   G.removePlayer(s, 'sock1');
   assert.strictEqual(s.players['sock1'], undefined);
+});
+test('addPlayer rechaza nombre vacío', () => {
+  const s = G.createGame();
+  const r = G.addPlayer(s, 'sock1', '   ', 'det1');
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(s.players['sock1'], undefined);
+});
+test('addPlayer impide dos jugadores en el mismo rol singular', () => {
+  const s = G.createGame();
+  assert.strictEqual(G.addPlayer(s, 'a', 'Ana', 'jack').ok, true);
+  const r = G.addPlayer(s, 'b', 'Beto', 'jack');
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(s.players['b'], undefined);
+});
+test('addPlayer permite múltiples espectadores', () => {
+  const s = G.createGame();
+  assert.strictEqual(G.addPlayer(s, 'a', 'Ana', 'spectator').ok, true);
+  assert.strictEqual(G.addPlayer(s, 'b', 'Beto', 'spectator').ok, true);
+});
+test('addPlayer permite reconexión por nombre y bloquea a un nombre distinto', () => {
+  const s = G.createGame();
+  assert.strictEqual(G.addPlayer(s, 'sock1', 'Ana', 'jack').ok, true);
+  G.removePlayer(s, 'sock1'); // Jack se desconecta; su reserva de rol persiste
+  // Un nombre distinto NO puede apropiarse del rol (protege la info secreta).
+  assert.strictEqual(G.addPlayer(s, 'sock2', 'Mallory', 'jack').ok, false);
+  // El mismo nombre reconecta y recupera su rol.
+  const r = G.addPlayer(s, 'sock3', 'Ana', 'jack');
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(s.players['sock3'], { name: 'Ana', role: 'jack' });
 });
 
 test('upsertToken agrega y actualiza por id', () => {
@@ -158,6 +188,20 @@ test('checkLairReached es verdadero solo si Jack está en su guarida', () => {
 
 test('TOTAL_NIGHTS es 4', () => {
   assert.strictEqual(G.TOTAL_NIGHTS, 4);
+});
+
+test('MOVES_PER_NIGHT es 15', () => {
+  assert.strictEqual(G.MOVES_PER_NIGHT, 15);
+});
+test('movesExhausted es verdadero recién al alcanzar el límite de la noche', () => {
+  const s = G.createGame();
+  G.startCrime(s, 77); // jackMoves = 0 (el crimen es el paso 0)
+  for (let i = 0; i < G.MOVES_PER_NIGHT - 1; i++) G.logJackStep(s, 1, null);
+  assert.strictEqual(s.game.jackMoves, 14);
+  assert.strictEqual(G.movesExhausted(s), false);
+  G.logJackStep(s, 1, null); // movimiento 15
+  assert.strictEqual(s.game.jackMoves, 15);
+  assert.strictEqual(G.movesExhausted(s), true);
 });
 
 test('createGame por defecto es modo manual', () => {
