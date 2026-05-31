@@ -21,7 +21,9 @@ function createGame() {
     roleClaims: {},
     tokens: [],
     jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT },
-    ref: { jackCircle: null, police: {} },
+    // ref: estado del modo Aprendizaje. moved/acted registran qué peones ya
+    // se movieron/actuaron en el turno de policía en curso.
+    ref: { jackCircle: null, police: {}, moved: {}, acted: {} },
     log: [],
   };
 }
@@ -29,7 +31,7 @@ function setMode(state, mode) {
   const m = (mode === 'referee') ? 'referee' : 'manual';
   if (state.game.mode === m && state.ref) return; // sin cambios: no borrar posiciones
   state.game.mode = m;
-  state.ref = { jackCircle: null, police: {} };
+  state.ref = { jackCircle: null, police: {}, moved: {}, acted: {} };
 }
 // Devuelve { ok } o { ok:false, reason }. Valida nombre no vacío (#9), unicidad
 // de rol (#8) y reconexión por nombre (#7).

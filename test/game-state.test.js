@@ -213,7 +213,7 @@ test('setMode cambia el modo y refPos existe en referee', () => {
   const s = G.createGame();
   G.setMode(s, 'referee');
   assert.strictEqual(s.game.mode, 'referee');
-  assert.deepStrictEqual(s.ref, { jackCircle: null, police: {} });
+  assert.deepStrictEqual(s.ref, { jackCircle: null, police: {}, moved: {}, acted: {} });
 });
 
 test('viewFor no expone ref.jackCircle a no-Jack', () => {

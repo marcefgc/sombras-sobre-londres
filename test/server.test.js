@@ -317,7 +317,7 @@ test('ref:moveJack ilegal es rechazado con motivo', async () => {
   await new Promise((r) => server.close(r));
 });
 
-test('ref:search en referee resuelve pista automáticamente', async () => {
+test('caza por turnos: la policía solo actúa en su turno, se coloca, busca y auto-finaliza', async () => {
   const { server } = createServer();
   await new Promise((r) => server.listen(0, r));
   const port = server.address().port;
@@ -328,18 +328,27 @@ test('ref:search en referee resuelve pista automáticamente', async () => {
   det.emit('join', { name: 'D', role: 'det1' });
   await jackW.wait(); await detW.wait();
   jack.emit('setMode', { mode: 'referee' });
-  const c = B.data.crimeStarts[0];
+  // crimen en un círculo con vecino conectado por un cuadrado (via)
+  let c = -1, n1 = -1, sq = -1;
+  for (let i = 0; i < 195 && c < 0; i++) { const e = B.neighbors(i).find((x) => x.via != null); if (e) { c = i; n1 = e.circle; sq = e.via; } }
   jack.emit('ref:startCrime', { circle: c });
-  await detW.wait((s) => s.ref && s.ref.jackCircle === undefined && s.game.mode === 'referee');
-  // coloca al policía en un cuadrado adyacente al círculo del crimen
-  const via = B.neighbors(c).find((n) => n.via != null);
-  if (via) {
-    det.emit('ref:movePolice', { square: via.via });
-    await detW.wait((s) => s.ref.police['det1'] === via.via);
-    const res = await new Promise((r) => { det.once('clue:result', r); det.emit('ref:search', { circle: c }); });
-    assert.strictEqual(res.circle, c);
-    assert.strictEqual(res.passed, true);
-  }
+  await jackW.wait((s) => s.ref && s.ref.jackCircle === c);
+  // Es el turno de Jack: la policía NO puede moverse todavía.
+  const rejected = await new Promise((r) => { det.once('ref:rejected', r); det.emit('ref:movePolice', { square: sq }); });
+  assert.match(rejected.reason, /turno de la polic/i);
+  // El detective ve que es turno de Jack y aún no tiene cuadrados legales.
+  assert.strictEqual(detW.latest.game.turn, 'jack');
+  // Jack se mueve -> pasa el turno a la policía.
+  jack.emit('ref:moveJack', { circle: n1, kind: 'normal' });
+  const dv = await detW.wait((s) => s.game.turn === 'police');
+  assert.ok(dv.ref.legalSquares.length > 0); // ya puede colocarse (1ª colocación libre)
+  // La policía se coloca y busca pista en el círculo PASADO (c) -> SÍ.
+  det.emit('ref:movePolice', { square: sq });
+  await detW.wait((s) => s.ref.police['det1'] === sq);
+  const res = await new Promise((r) => { det.once('clue:result', r); det.emit('ref:search', { circle: c }); });
+  assert.strictEqual(res.passed, true);
+  // Actuó el único detective -> auto-fin del turno de policía -> vuelve a Jack.
+  await jackW.wait((s) => s.game.turn === 'jack');
   jack.close(); det.close();
   await new Promise((r) => server.close(r));
 });

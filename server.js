@@ -21,19 +21,44 @@ function createServer() {
   function viewForRole(role) {
     const view = G.viewFor(state, role);
     if (state.game.mode === 'referee' && state.ref) {
-      if (role === 'jack' && state.ref.jackCircle != null) {
-        view.ref.legal = {
-          normal: R.legalNormalTargets(state),
-          carriage: R.legalCarriageTargets(state),
-          alley: R.legalAlleyTargets(state),
-        };
+      const turn = state.game.turn;
+      if (role === 'jack') {
+        // Destinos legales solo en el turno de Jack.
+        if (turn === 'jack' && state.ref.jackCircle != null) {
+          view.ref.legal = {
+            normal: R.legalNormalTargets(state),
+            carriage: R.legalCarriageTargets(state),
+            alley: R.legalAlleyTargets(state),
+          };
+        } else {
+          view.ref.legal = { normal: [], carriage: [], alley: [] };
+        }
       } else if (role && role.startsWith('det')) {
-        const from = state.ref.police[role];
-        view.ref.legalSquares = from != null ? R.reachableSquares(state, from, 2) : [];
-        view.ref.searchable = R.circlesAroundPolice(state, role);
+        const placed = state.ref.police[role] != null;
+        const moved = !!(state.ref.moved && state.ref.moved[role]);
+        const acted = !!(state.ref.acted && state.ref.acted[role]);
+        // Cuadrados a los que puede ir: si no está colocado, cualquiera libre;
+        // si ya, los de a ≤2. Solo en turno de policía y si no se ha movido.
+        if (turn === 'police' && !moved) {
+          view.ref.legalSquares = placed ? R.reachableSquares(state, state.ref.police[role], 2) : R.placementSquares(state);
+        } else {
+          view.ref.legalSquares = [];
+        }
+        // Círculos investigables: solo en turno de policía, colocado y sin actuar.
+        view.ref.searchable = (turn === 'police' && placed && !acted) ? R.circlesAroundPolice(state, role) : [];
       }
     }
     return view;
+  }
+  // Roles detective actualmente conectados (para el auto-fin del turno de policía).
+  function detRolesPresent() {
+    return Object.values(state.players).map((p) => p.role).filter((r) => r && r.startsWith('det'));
+  }
+  function maybeEndPoliceTurn() {
+    if (state.game.mode === 'referee' && state.game.turn === 'police'
+        && R.allPoliceActed(state, detRolesPresent())) {
+      R.endPoliceTurn(state);
+    }
   }
   function emitStates() {
     for (const [id, p] of Object.entries(state.players)) {
@@ -207,6 +232,7 @@ function createServer() {
       if (!r.ok) return socket.emit('ref:rejected', r);
       io.emit('clue:result', { circle, passed: r.passed });
       const jid = jackSocketId(); if (jid) io.to(jid).emit('clue:asked', { circle });
+      maybeEndPoliceTurn();
       sendStates();
     });
     socket.on('ref:arrest', ({ circle }) => {
@@ -215,6 +241,15 @@ function createServer() {
       if (!r.ok) return socket.emit('ref:rejected', r);
       io.emit('arrest:result', { circle, caught: r.caught });
       const jid = jackSocketId(); if (jid) io.to(jid).emit('arrest:attempt', { circle });
+      maybeEndPoliceTurn();
+      sendStates();
+    });
+    socket.on('ref:endPoliceTurn', () => {
+      if (state.game.mode !== 'referee') return;
+      const role = roleOf();
+      if (!(role && role.startsWith('det'))) return; // solo la policía termina su turno
+      if (state.game.turn !== 'police') return;
+      R.endPoliceTurn(state);
       sendStates();
     });
 

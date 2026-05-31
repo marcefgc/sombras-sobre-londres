@@ -76,7 +76,10 @@ function renderStatus(s) {
   const modeTag = s.game.mode === 'referee' ? '[Aprendizaje] ' : '[Partida] ';
   $('nightLabel').textContent = 'Noche ' + s.game.night + ' / 4';
   $('phaseLabel').textContent = modeTag + (phases[s.game.phase] || s.game.phase);
-  $('movesLabel').textContent = 'Movimientos de Jack: ' + s.game.jackMoves + ' / 15';
+  // En Aprendizaje, durante la caza, se muestra de quién es el turno.
+  const turnTag = (s.game.mode === 'referee' && s.game.phase === 'hunt')
+    ? ' · Turno: ' + (s.game.turn === 'jack' ? 'Jack 🔪' : 'Policía 🔎') : '';
+  $('movesLabel').textContent = 'Movimientos de Jack: ' + s.game.jackMoves + ' / 15' + turnTag;
 }
 
 // ---- Tutor: muestra el consejo adecuado según el estado y el rol ----
@@ -101,13 +104,18 @@ function coachTip(state) {
   if (myRole === 'jack') {
     if (state.jack && state.jack.lair == null) return 'Eres Jack 🔪. Primero fija tu escondite: pulsa "Fijar guarida" y haz click en un círculo del mapa.';
     if (ref.jackCircle == null) return 'Ahora comete tu crimen: pulsa "Elegir crimen" y haz click en uno de los puntos ROJOS resaltados.';
-    if (g.jackMoves >= 13) return 'Te quedan pocos turnos ⏳. Vuelve a tu guarida y pulsa "Llegué a mi guarida". Si te bloquean, usa "Carruaje" o "Callejón".';
-    return 'Tu turno: pulsa "Mover" y haz click en un círculo VERDE para avanzar en secreto. "Carruaje" salta 2 y cruza bloqueos; "Callejón" cambia de calle.';
+    if (g.phase === 'hunt' && g.turn === 'police') return 'Espera ⏳: es el turno de la policía. Cuando terminen, te tocará mover.';
+    if (g.jackMoves >= 13) return 'Te quedan pocos turnos ⏳. Vuelve a tu guarida (🏠) y pulsa "Llegué a mi guarida". Si te bloquean, usa "Carruaje" o "Callejón".';
+    return 'Tu turno: pulsa "Mover" y haz click en un círculo VERDE para avanzar en secreto. "Carruaje" salta 2 y cruza bloqueos; "Callejón" cambia de calle. Luego juega la policía.';
   }
   if (myRole && myRole.startsWith('det')) {
-    if (g.phase !== 'hunt') return 'Eres detective 🔎. Espera a que Jack cometa su primer crimen; cuando empiece la caza podrás moverte.';
-    if (!ref.police || ref.police[myRole] == null) return 'Coloca tu detective: pulsa "Mover" y haz click en un CUADRADO verde (las esquinas de las calles).';
-    return 'Pulsa "Buscar pista" y haz click en un círculo VERDE adyacente para investigar; o "Mover" para acercarte. Si crees saber dónde está Jack, usa "Arrestar".';
+    if (g.phase !== 'hunt') return 'Eres detective 🔎. Espera a que Jack cometa su primer crimen; cuando empiece la caza jugaréis por turnos.';
+    if (g.turn === 'jack') return 'Espera ⏳: Jack se está moviendo en secreto. Cuando termine, será vuestro turno.';
+    const placed = ref.police && ref.police[myRole] != null;
+    const acted = ref.acted && ref.acted[myRole];
+    if (!placed) return 'Tu turno 🔎: coloca tu detective — pulsa "Mover" y haz click en un CUADRADO verde (una esquina).';
+    if (acted) return 'Ya actuaste este turno. Espera a los demás detectives o pulsa "Terminar turno de policía".';
+    return 'Pulsa "Buscar pista" y click en un círculo VERDE adyacente; o "Mover" para acercarte; o "Arrestar" si sabes dónde está Jack. Al terminar, "Terminar turno de policía".';
   }
   return '';
 }
@@ -451,6 +459,10 @@ function buildRefControls() {
     row(mk('Fijar guarida', 'lair'));
   } else if (myRole && myRole.startsWith('det')) {
     row(mk('Mover', 'move'), mk('Buscar pista', 'search'), mk('Arrestar', 'arrest'));
+    const endRow = document.createElement('div'); endRow.className = 'row';
+    endRow.innerHTML = '<button id="endTurnBtn">Terminar turno de policía</button>';
+    c.appendChild(endRow);
+    document.getElementById('endTurnBtn').onclick = () => socket.emit('ref:endPoliceTurn');
   }
 
   // Resolución de la noche (no espectador). En Aprendizaje la noche avanza sola

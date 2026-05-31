@@ -102,6 +102,7 @@ test('moveJack se rechaza cuando se agotaron los 15 movimientos de la noche', ()
 
 test('movePolice valida distancia <=2 y no terminar sobre otro policía', () => {
   const s = refGame();
+  s.game.turn = 'police';
   const sq = +Object.keys(B.data.squareAdj).find((k) => B.squareNeighbors(+k).length > 0);
   const adjSq = B.squareNeighbors(sq)[0];
   s.ref.police['det1'] = sq;
@@ -111,15 +112,70 @@ test('movePolice valida distancia <=2 y no terminar sobre otro policía', () => 
   assert.strictEqual(R.movePolice(s, 'det2', adjSq).ok, false);
 });
 
-test('searchClue automático coloca pista si el asesino pasó', () => {
-  const s = refGame();
-  const c = B.data.crimeStarts[0];
-  R.startCrimeAt(s, c);
-  const via = B.neighbors(c).find((n) => n.via != null);
-  if (via) {
-    s.ref.police['det1'] = via.via;
-    const r = R.searchClue(s, 'det1', c);
-    assert.strictEqual(r.ok, true);
-    assert.strictEqual(r.passed, true);
+// Crimen + vecino conectados por un cuadrado (via): sirve para varios tests.
+function crimeWithVia() {
+  for (let i = 0; i < 195; i++) {
+    const e = B.neighbors(i).find((x) => x.via != null);
+    if (e) return { c: i, n1: e.circle, sq: e.via };
   }
+  return null;
+}
+
+test('searchClue revela un círculo PASADO pero no la posición actual de Jack', () => {
+  const s = refGame();
+  const { c, n1, sq } = crimeWithVia();
+  R.startCrimeAt(s, c);          // turno Jack, jackCircle=c (paso 0)
+  R.moveJack(s, n1, 'normal');   // Jack pasa a n1; turno -> police; c queda como pasado
+  s.ref.police['det1'] = sq;     // policía en el cuadrado entre c y n1
+  const r1 = R.searchClue(s, 'det1', c);
+  assert.strictEqual(r1.ok, true);
+  assert.strictEqual(r1.passed, true);   // c es un círculo por el que pasó
+  s.ref.acted = {};              // permitir otra búsqueda para la aserción
+  const r2 = R.searchClue(s, 'det1', n1);
+  assert.strictEqual(r2.passed, false);  // n1 es su posición ACTUAL: no se revela
+});
+
+test('la caza es por turnos: Jack mueve, luego policía, y alterna', () => {
+  const s = refGame();
+  const { c, n1, sq } = crimeWithVia();
+  R.startCrimeAt(s, c);
+  assert.strictEqual(s.game.turn, 'jack');
+  assert.strictEqual(R.moveJack(s, n1, 'normal').ok, true);
+  assert.strictEqual(s.game.turn, 'police');
+  // En turno de policía, Jack no puede mover.
+  const rej = R.moveJack(s, c, 'normal');
+  assert.strictEqual(rej.ok, false);
+  assert.match(rej.reason, /turno de Jack/i);
+  // La policía mueve y actúa.
+  assert.strictEqual(R.movePolice(s, 'det1', sq).ok, true);
+  assert.strictEqual(R.searchClue(s, 'det1', c).ok, true);
+  // Un peón no puede mover/actuar dos veces el mismo turno.
+  assert.match(R.movePolice(s, 'det1', sq).reason, /ya se movió/i);
+  assert.match(R.searchClue(s, 'det1', c).reason, /ya actuó/i);
+  // Fin del turno de policía -> vuelve a Jack.
+  R.endPoliceTurn(s);
+  assert.strictEqual(s.game.turn, 'jack');
+  assert.deepStrictEqual(s.ref.moved, {});
+  s.ref.police = {}; // sin bloqueos para la aserción
+  assert.strictEqual(R.moveJack(s, c, 'normal').ok, true); // Jack puede mover de nuevo
+});
+
+test('movePolice y searchClue se rechazan en el turno de Jack', () => {
+  const s = refGame();
+  const { c, sq } = crimeWithVia();
+  R.startCrimeAt(s, c); // turno Jack
+  assert.match(R.movePolice(s, 'det1', sq).reason, /turno de la polic/i);
+  assert.match(R.searchClue(s, 'det1', c).reason, /turno de la polic/i);
+});
+
+test('allPoliceActed detecta cuando todos los detectives presentes actuaron', () => {
+  const s = refGame();
+  const { c, n1, sq } = crimeWithVia();
+  R.startCrimeAt(s, c);
+  R.moveJack(s, n1, 'normal'); // -> turno police
+  s.ref.police['det1'] = sq;
+  assert.strictEqual(R.allPoliceActed(s, ['det1']), false);
+  R.searchClue(s, 'det1', c);
+  assert.strictEqual(R.allPoliceActed(s, ['det1']), true);
+  assert.strictEqual(R.allPoliceActed(s, ['det1', 'det2']), false);
 });

@@ -13,7 +13,23 @@ function startCrimeAt(state, circle) {
   if (B.node(circle) == null || B.node(circle).type !== 'circle') return { ok: false, reason: 'círculo inválido' };
   state.ref.jackCircle = circle;
   G.startCrime(state, circle);
+  state.game.turn = 'jack';           // la caza empieza moviendo Jack
+  state.ref.moved = {}; state.ref.acted = {};
   return { ok: true };
+}
+
+// Cuadrados libres para la primera colocación de un policía (cualquiera no ocupado).
+function placementSquares(state) {
+  const occ = occupiedSquares(state);
+  return B.data.nodes.filter((n) => n.type === 'square' && !occ.has(n.id)).map((n) => n.id);
+}
+function endPoliceTurn(state) {
+  state.game.turn = 'jack';
+  state.ref.moved = {}; state.ref.acted = {};
+}
+// ¿Han actuado ya todos los roles detective presentes? (la lista la da el servidor).
+function allPoliceActed(state, detRoles) {
+  return detRoles.length > 0 && detRoles.every((r) => state.ref.acted[r]);
 }
 
 function legalNormalTargets(state) {
@@ -47,6 +63,7 @@ function legalAlleyTargets(state) {
 
 function moveJack(state, circle, kind) {
   if (state.ref.jackCircle == null) return { ok: false, reason: 'sin posición' };
+  if (state.game.turn !== 'jack') return { ok: false, reason: 'no es el turno de Jack' };
   if (G.movesExhausted(state)) return { ok: false, reason: 'se agotó la noche (15 movimientos)' };
   let legal, special = null;
   if (kind === 'carriage') {
@@ -61,6 +78,9 @@ function moveJack(state, circle, kind) {
   if (!legal.includes(circle)) return { ok: false, reason: kind === 'normal' ? 'movimiento ilegal o bloqueado' : 'destino fuera de alcance' };
   G.logJackStep(state, circle, special);
   state.ref.jackCircle = circle;
+  // Tras mover Jack, juega la policía (y se reinician sus marcas de turno).
+  state.game.turn = 'police';
+  state.ref.moved = {}; state.ref.acted = {};
   return { ok: true };
 }
 
@@ -77,13 +97,16 @@ function reachableSquares(state, from, steps) {
 }
 
 function movePolice(state, who, square) {
+  if (state.game.turn !== 'police') return { ok: false, reason: 'no es el turno de la policía' };
+  if (state.ref.moved[who]) return { ok: false, reason: 'ese detective ya se movió este turno' };
   const from = state.ref.police[who];
   if (from == null) {
+    // Primera colocación: cualquier cuadrado no ocupado.
     if (occupiedSquares(state).has(square)) return { ok: false, reason: 'cuadrado ocupado' };
-    state.ref.police[who] = square; return { ok: true };
+    state.ref.police[who] = square; state.ref.moved[who] = true; return { ok: true };
   }
   if (!reachableSquares(state, from, 2).includes(square)) return { ok: false, reason: 'fuera de alcance o cuadrado ocupado' };
-  state.ref.police[who] = square;
+  state.ref.police[who] = square; state.ref.moved[who] = true;
   return { ok: true };
 }
 
@@ -95,18 +118,27 @@ function circlesAroundPolice(state, who) {
 }
 
 function searchClue(state, who, circle) {
+  if (state.game.turn !== 'police') return { ok: false, reason: 'no es el turno de la policía' };
+  if (state.ref.acted[who]) return { ok: false, reason: 'ese detective ya actuó este turno' };
   if (!circlesAroundPolice(state, who).includes(circle)) return { ok: false, reason: 'círculo no adyacente' };
-  const passed = G.checkClue(state, circle);
+  // Las pistas marcan por dónde PASÓ Jack, no dónde ESTÁ ahora: una búsqueda
+  // sobre su círculo actual no revela nada.
+  const passed = circle !== state.ref.jackCircle && G.checkClue(state, circle);
+  state.ref.acted[who] = true;
   state.log.push('Pista en ' + circle + ': ' + (passed ? 'SÍ' : 'no'));
   return { ok: true, passed };
 }
 
 function arrest(state, who, circle) {
+  if (state.game.turn !== 'police') return { ok: false, reason: 'no es el turno de la policía' };
+  if (state.ref.acted[who]) return { ok: false, reason: 'ese detective ya actuó este turno' };
   if (!circlesAroundPolice(state, who).includes(circle)) return { ok: false, reason: 'círculo no adyacente' };
   const caught = G.checkArrest(state, circle);
+  state.ref.acted[who] = true;
   if (caught) G.endGame(state, 'Policía');
   return { ok: true, caught };
 }
 
 module.exports = { ALLEY_RADIUS, startCrimeAt, moveJack, movePolice, searchClue, arrest,
+  endPoliceTurn, allPoliceActed, placementSquares,
   legalNormalTargets, legalCarriageTargets, legalAlleyTargets, reachableSquares, circlesAroundPolice };
