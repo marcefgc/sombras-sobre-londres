@@ -433,12 +433,13 @@ function buildRefControls() {
     row(mk('Mover', 'move'), mk('Buscar pista', 'search'), mk('Arrestar', 'arrest'));
   }
 
-  // Fases compartidas (no espectador)
+  // Resolución de la noche (no espectador). En Aprendizaje la noche avanza sola
+  // al llegar a la guarida (botón del panel de Jack); aquí solo queda el amanecer
+  // para cuando se agotan los 15 movimientos sin volver a casa.
   const pr = document.createElement('div'); pr.className = 'row';
-  pr.innerHTML = '<button id="nightBtn">Siguiente noche</button><button id="dawnBtn">Amanecer</button>';
+  pr.innerHTML = '<button id="dawnBtn">Amanecer (se agotó la noche)</button>';
   c.appendChild(pr);
-  document.getElementById('nightBtn').onclick = () => socket.emit('phase:nextNight');
-  document.getElementById('dawnBtn').onclick = () => { if (confirm('¿Declarar el amanecer? Si Jack no llegó a su guarida, gana la policía.')) socket.emit('phase:dawn'); };
+  document.getElementById('dawnBtn').onclick = () => { if (confirm('¿Declarar el amanecer? Si Jack no llegó a su guarida y agotó sus 15 movimientos, gana la policía.')) socket.emit('phase:dawn'); };
 }
 
 socket.on('ref:rejected', ({ reason }) => {

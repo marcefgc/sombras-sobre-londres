@@ -104,6 +104,15 @@ function createServer() {
     });
     socket.on('phase:nextNight', () => {
       if (roleOf() !== 'jack') return; // #3: solo Jack avanza la noche
+      // B2: durante la caza la noche NO se puede saltar a demanda. Solo termina
+      // al llegar a la guarida (jack:reachedLair, que avanza) o al amanecer
+      // (phase:dawn, victoria policial). Si no, Jack abandonaría una noche
+      // perdida y recuperaría sus carruajes/callejones sin penalización.
+      if (state.game.phase === 'hunt') {
+        state.log.push('Avance de noche rechazado: la noche solo termina al llegar a la guarida o al amanecer.');
+        sendStates();
+        return;
+      }
       G.nextNight(state); sendStates();
     });
     socket.on('reset', () => {

@@ -102,3 +102,28 @@ con `jackMoves === 15`.
 2. **B2** — impedir `phase:nextNight` durante la caza.
 3. Añadir test de regresión para el límite de 15 turnos.
 4. Resto: reglas de carruaje/callejón (#5, #6), desconexión (#7), persistencia (#11).
+
+---
+
+## Actualización — corrección de B1/B2 (sesión posterior)
+
+Verificado contra el HEAD actual antes de tocar nada (método sistemático):
+
+- **B1 (cap de 15 movimientos en `ref:moveJack`): ya estaba resuelto.** `referee.moveJack`
+  rechaza con `{ ok:false, reason:'se agotó la noche (15 movimientos)' }` cuando
+  `jackMoves >= 15`, y existe test que lo cubre (`referee.test.js`). El reporte se
+  escribió contra un estado previo; en HEAD ya no reproduce. Sin cambios.
+- **B2 (`phase:nextNight` saltaba una noche en plena caza): CORREGIDO.** El handler
+  ahora rechaza el avance cuando `phase === 'hunt'` (la noche solo termina al llegar a
+  la guarida o al amanecer). Test de regresión añadido: *"B2: phase:nextNight se
+  rechaza durante la caza"*. En el cliente se quitó el botón "Siguiente noche" del modo
+  Aprendizaje (la noche avanza sola al llegar a la guarida).
+- Suite: **64/64 verdes**.
+
+### Hallazgo pendiente de decisión — regla del carruaje
+`legalCarriageTargets` fue modificado (en `fd38040`) para que el carruaje **respete**
+el bloqueo policial del tramo intermedio, con un test que lo afirma. Esto **contradice**
+las reglas del propio `Whitechapel.md` del proyecto: *"El Carruaje… ¡Su gran ventaja!
+Permite cruzar un cuadrado negro que esté ocupado por un policía."* Es decir, el carruaje
+debería **ignorar** el bloqueo (es su razón de ser). Queda señalado para que el dueño del
+proyecto decida si se revierte a la regla documentada.

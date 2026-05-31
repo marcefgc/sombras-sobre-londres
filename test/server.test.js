@@ -343,3 +343,21 @@ test('ref:search en referee resuelve pista automáticamente', async () => {
   jack.close(); det.close();
   await new Promise((r) => server.close(r));
 });
+
+test('B2: phase:nextNight se rechaza durante la caza (no se salta una noche perdida)', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  await jackW.wait();
+  jack.emit('phase:startCrime', { circle: 7 });
+  await jackW.wait((s) => s.game.phase === 'hunt');
+  jack.emit('phase:nextNight'); // intento de abandonar la noche en plena caza
+  await jackW.wait((s) => s.log.some((l) => /rechaz/i.test(l)));
+  assert.strictEqual(jackW.latest.game.night, 1);   // sigue en la noche 1
+  assert.strictEqual(jackW.latest.game.phase, 'hunt');
+  jack.close();
+  await new Promise((r) => server.close(r));
+});
