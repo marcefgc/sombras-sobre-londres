@@ -193,3 +193,73 @@ button.act-on {
   #layout { flex-direction: column; }
   #sidebar { width: 100%; }
 }
+
+/* ===== Guía de reglas + tutor del modo Aprendizaje ===== */
+
+/* Botón fantasma del lobby */
+button.ghost {
+  background: transparent; border: 1px solid rgba(90,61,34,.5);
+  color: #5a3d22; text-transform: none; letter-spacing: .04em;
+}
+button.ghost:hover { background: rgba(90,61,34,.12); border-color: #5a3d22; }
+
+/* Barra inferior con el botón de Reglas */
+#game { padding-bottom: 52px; }
+#bottomBar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 16px;
+  background: #0f0d0b; border-top: 1px solid #3a332b;
+}
+#bottomBar .bb-title {
+  color: #8a7345; letter-spacing: .14em; text-transform: uppercase; font-size: 12px;
+}
+#rulesBtn { margin-left: auto; }
+
+/* Modal de reglas */
+#rulesModal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(8,6,5,.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.rules-inner {
+  position: relative; width: min(840px, 96vw); height: min(88vh, 1000px);
+  border: 1px solid rgba(180,150,95,.5); border-radius: 8px; overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7);
+  background: #1a1714;
+}
+#rulesFrame { width: 100%; height: 100%; border: 0; display: block; }
+#rulesClose {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  background: rgba(122,20,15,.92); border-color: rgba(220,180,120,.7);
+}
+
+/* Tutor flotante (coach) sobre el tablero */
+#coach {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 25; max-width: min(560px, 92%);
+  /* El cartel es informativo: no debe interceptar clicks en los nodos debajo
+     (solo su botón de cerrar es interactivo). */
+  pointer-events: none;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px;
+  background: rgba(247,238,214,.96); color: #2a1c10;
+  border: 1px solid var(--edge); border-left: 5px solid var(--blood);
+  border-radius: 7px; box-shadow: 0 10px 26px rgba(0,0,0,.5);
+  font-size: 14px; line-height: 1.45;
+}
+#coach.rejected { border-left-color: #b21810; background: rgba(250,224,210,.97); }
+#coachIcon { font-size: 18px; line-height: 1.2; }
+#coachText { flex: 1; }
+#coachHide {
+  background: transparent; border: none; color: #7a4a30; padding: 0 2px;
+  font-size: 15px; cursor: pointer; line-height: 1; text-transform: none;
+  pointer-events: auto;
+}
+#coachHide:hover { color: var(--blood); background: transparent; }
+#coachReopen {
+  position: absolute; top: 10px; left: 10px; z-index: 25;
+  width: 38px; height: 38px; padding: 0; border-radius: 50%;
+  font-size: 18px; background: rgba(122,20,15,.9); border-color: rgba(220,180,120,.7);
+}

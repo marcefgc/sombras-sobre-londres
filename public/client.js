@@ -43,6 +43,23 @@ $('resetBtn').onclick = () => {
   if (confirm('¿Reiniciar la partida para todos?')) socket.emit('reset');
 };
 
+// ---- Modal de reglas ----
+function openRules() {
+  const f = $('rulesFrame');
+  if (!f.getAttribute('src')) f.setAttribute('src', 'reglas.html');
+  $('rulesModal').hidden = false;
+}
+$('rulesBtn').onclick = openRules;
+$('rulesLobbyBtn').onclick = openRules;
+$('rulesClose').onclick = () => { $('rulesModal').hidden = true; };
+$('rulesModal').onclick = (e) => { if (e.target === $('rulesModal')) $('rulesModal').hidden = true; };
+
+// ---- Tutor (coach) del modo Aprendizaje ----
+let coachHidden = false;
+let coachStickUntil = 0; // mientras dure, un aviso de rechazo no se sobreescribe
+$('coachHide').onclick = () => { coachHidden = true; $('coach').hidden = true; $('coachReopen').hidden = false; };
+$('coachReopen').onclick = () => { coachHidden = false; $('coachReopen').hidden = true; if (lastState) updateCoach(lastState); };
+
 socket.on('state', (state) => {
   lastState = state;
   renderStatus(state);
@@ -50,6 +67,7 @@ socket.on('state', (state) => {
   renderLog(state);
   renderJackPanel(state);
   if (state.game.mode !== builtForMode) { builtForMode = state.game.mode; buildControls(); }
+  updateCoach(state);
 });
 
 function renderStatus(s) {
@@ -59,6 +77,39 @@ function renderStatus(s) {
   $('nightLabel').textContent = 'Noche ' + s.game.night + ' / 4';
   $('phaseLabel').textContent = modeTag + (phases[s.game.phase] || s.game.phase);
   $('movesLabel').textContent = 'Movimientos de Jack: ' + s.game.jackMoves + ' / 15';
+}
+
+// ---- Tutor: muestra el consejo adecuado según el estado y el rol ----
+function setCoach(text, rejected) {
+  if (coachHidden || !text) { return; }
+  $('coachText').textContent = text;
+  $('coach').classList.toggle('rejected', !!rejected);
+  $('coachIcon').textContent = rejected ? '⚠️' : '🎓';
+  $('coach').hidden = false;
+  $('coachReopen').hidden = true;
+}
+function updateCoach(state) {
+  if (!state || state.game.mode !== 'referee') { $('coach').hidden = true; $('coachReopen').hidden = true; return; }
+  if (coachHidden) { $('coach').hidden = true; $('coachReopen').hidden = false; return; }
+  if (Date.now() < coachStickUntil) return; // no pisar un aviso de rechazo reciente
+  setCoach(coachTip(state), false);
+}
+function coachTip(state) {
+  const g = state.game; const ref = state.ref || {};
+  if (g.phase === 'ended') return 'La partida terminó. Pulsa "Reiniciar" (arriba a la derecha) para jugar otra vez.';
+  if (myRole === 'spectator') return 'Observas la partida en modo Aprendizaje: verás los movimientos de la policía y las pistas que encuentren.';
+  if (myRole === 'jack') {
+    if (state.jack && state.jack.lair == null) return 'Eres Jack 🔪. Primero fija tu escondite: pulsa "Fijar guarida" y haz click en un círculo del mapa.';
+    if (ref.jackCircle == null) return 'Ahora comete tu crimen: pulsa "Elegir crimen" y haz click en uno de los puntos ROJOS resaltados.';
+    if (g.jackMoves >= 13) return 'Te quedan pocos turnos ⏳. Vuelve a tu guarida y pulsa "Llegué a mi guarida". Si te bloquean, usa "Carruaje" o "Callejón".';
+    return 'Tu turno: pulsa "Mover" y haz click en un círculo VERDE para avanzar en secreto. "Carruaje" salta 2 y cruza bloqueos; "Callejón" cambia de calle.';
+  }
+  if (myRole && myRole.startsWith('det')) {
+    if (g.phase !== 'hunt') return 'Eres detective 🔎. Espera a que Jack cometa su primer crimen; cuando empiece la caza podrás moverte.';
+    if (!ref.police || ref.police[myRole] == null) return 'Coloca tu detective: pulsa "Mover" y haz click en un CUADRADO verde (las esquinas de las calles).';
+    return 'Pulsa "Buscar pista" y haz click en un círculo VERDE adyacente para investigar; o "Mover" para acercarte. Si crees saber dónde está Jack, usa "Arrestar".';
+  }
+  return '';
 }
 
 // Despacha el render del tablero según el modo: fichas arrastrables (Partida) o
@@ -394,6 +445,18 @@ socket.on('ref:rejected', ({ reason }) => {
   const li = document.createElement('li');
   li.textContent = '⛔ ' + (reason || 'movimiento rechazado');
   $('log').prepend(li);
+  // Explica el rechazo en el tutor para guiar al principiante.
+  const hints = {
+    'movimiento ilegal o bloqueado': 'Ese círculo no es accesible: solo puedes ir a un círculo VERDE. Si una esquina con policía te bloquea, prueba "Carruaje".',
+    'destino fuera de alcance': 'Ese destino no es válido para esa acción. Fíjate en los círculos resaltados en verde.',
+    'fuera de alcance o cuadrado ocupado': 'Solo puedes ir a un CUADRADO verde, y no puedes terminar donde ya hay otro policía.',
+    'círculo no adyacente': 'Solo puedes investigar/arrestar en un círculo VERDE adyacente a tu esquina. Acércate con "Mover" primero.',
+    'sin carruajes': 'Ya no te quedan carruajes esta noche.',
+    'sin callejones': 'Ya no te quedan callejones esta noche.',
+  };
+  const tip = hints[reason] || ('Acción rechazada: ' + (reason || '') + '.');
+  coachStickUntil = Date.now() + 4500;
+  setCoach(tip, true);
 });
 
 // El servidor rechazó la entrada (rol ocupado, nombre vacío o rol reservado por

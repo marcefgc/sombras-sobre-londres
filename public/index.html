@@ -30,6 +30,7 @@
       <option value="referee">Aprendizaje — el árbitro valida todo</option>
     </select>
     <button id="joinBtn">Entrar</button>
+    <button id="rulesLobbyBtn" type="button" class="ghost">📖 Leer las reglas</button>
   </section>
 
   <!-- JUEGO -->
@@ -46,6 +47,12 @@
         <img id="mapImg" src="assets/whitechapel-map-buildings.jpg" alt="Mapa de Whitechapel" />
         <div id="tokenLayer"></div>
         <div id="nodeLayer" hidden></div>
+        <div id="coach" hidden>
+          <span id="coachIcon">🎓</span>
+          <span id="coachText"></span>
+          <button id="coachHide" type="button" title="Ocultar consejo">✕</button>
+        </div>
+        <button id="coachReopen" type="button" hidden title="Mostrar consejos">💡</button>
       </div>
 
       <aside id="sidebar">
@@ -55,7 +62,20 @@
         <ul id="log"></ul>
       </aside>
     </div>
+
+    <footer id="bottomBar">
+      <span class="bb-title">Sombras sobre Londres</span>
+      <button id="rulesBtn" type="button">📖 Reglas</button>
+    </footer>
   </section>
+
+  <!-- Modal de reglas (sobre toda la app) -->
+  <div id="rulesModal" hidden>
+    <div class="rules-inner">
+      <button id="rulesClose" type="button">✕ Cerrar</button>
+      <iframe id="rulesFrame" title="Reglas de Sombras sobre Londres"></iframe>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reglas — Sombras sobre Londres</title>
+<style>
+  :root{
+    --ink:#3a281a; --ink-soft:#5a3d22; --paper:#e7d8b4; --paper-dk:#d3bd8f;
+    --edge:#4a321a; --cream:#f6ecd2; --blood:#7a140f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#1a1714 url('assets/parchment.png') center top/cover fixed;
+    color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    line-height:1.7; padding:32px 18px 80px;
+  }
+  .sheet{
+    max-width:760px; margin:0 auto;
+    background:rgba(247,238,214,.86);
+    border:1px solid var(--edge); border-radius:8px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);
+    padding:34px clamp(20px,5vw,52px);
+  }
+  .kicker{font-size:12px;letter-spacing:.42em;text-transform:uppercase;color:#8a5a30;margin:0 0 8px;font-family:Georgia,serif;text-align:center;}
+  h1{font-size:clamp(30px,5vw,46px);margin:0 0 4px;text-align:center;color:#2a1c10;letter-spacing:.02em;}
+  .sub{display:block;font-size:.4em;letter-spacing:.32em;color:#8a5a30;text-transform:uppercase;margin-top:10px;}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,#8a7345,transparent);margin:22px 0 8px;}
+  h2{font-size:23px;color:var(--blood);margin:34px 0 6px;border-bottom:1px solid rgba(122,20,15,.25);padding-bottom:5px;}
+  h3{font-size:17px;color:#5a3d22;margin:20px 0 4px;}
+  p,li{font-size:16px;color:#3a281a;}
+  ul,ol{padding-left:22px;}
+  li{margin:5px 0;}
+  .lead{font-size:18px;font-style:italic;color:#5a3d22;text-align:center;margin:6px 0 4px;}
+  .card{background:rgba(255,250,235,.7);border:1px solid rgba(150,120,70,.4);border-left:4px solid var(--blood);border-radius:5px;padding:12px 16px;margin:14px 0;}
+  .card.jack{border-left-color:#3a281a;}
+  .card.police{border-left-color:#0c447c;}
+  .tip{background:rgba(239,200,120,.35);border:1px dashed #a9772a;border-radius:5px;padding:10px 14px;margin:14px 0;font-size:15px;}
+  .tip b{color:#7a4a10;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;}
+  th,td{border:1px solid rgba(120,90,50,.4);padding:8px 10px;text-align:left;font-size:15px;vertical-align:top;}
+  th{background:rgba(122,20,15,.12);color:#5a1810;}
+  .pill{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:6px;border:1px solid #000;}
+  .p-jack{background:#2b2b2b;} .p-blue{background:#1565c0;} .p-red{background:#c62828;} .p-yellow{background:#f9a825;}
+  footer{max-width:760px;margin:26px auto 0;text-align:center;color:#caa46a;font-size:12px;letter-spacing:.08em;}
+  strong{color:#2a1c10;}
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <p class="kicker">Sombras sobre Londres · 1888</p>
+    <h1>Cómo jugar<span class="sub">Guía rápida para principiantes</span></h1>
+    <div class="rule"></div>
+    <p class="lead">Un asesino se esconde en la niebla de Whitechapel. La policía debe atraparlo antes del amanecer.</p>
+
+    <h2>1. La idea en 30 segundos</h2>
+    <p>Es un juego de <strong>persecución del gato y el ratón</strong>, de bandos desiguales:</p>
+    <div class="card jack"><span class="pill p-jack"></span><strong>Jack el Destripador (1 jugador):</strong> se mueve <strong>en secreto</strong>. Nadie ve por dónde va. Su meta es cometer crímenes y volver a su <strong>guarida secreta</strong> cada noche sin ser atrapado.</div>
+    <div class="card police"><span class="pill p-blue"></span><strong>Los detectives (1 a 5 jugadores):</strong> se mueven por las calles a la vista de todos. Buscan <strong>pistas</strong> para deducir el camino de Jack y <strong>arrestarlo</strong>.</div>
+    <p>La partida dura <strong>4 noches</strong>. Si Jack sobrevive las 4, gana Jack. Si la policía lo arresta —o lo deja atrapado al amanecer— gana la policía.</p>
+
+    <h2>2. El tablero: dos formas de moverse</h2>
+    <p>El mapa de Londres tiene dos tipos de lugares:</p>
+    <ul>
+      <li><strong>Círculos numerados</strong> — por aquí se mueve <em>solo Jack</em>, saltando de un círculo a otro vecino.</li>
+      <li><strong>Cuadrados (esquinas)</strong> — por aquí se mueven <em>solo los detectives</em>. Desde una esquina, un policía vigila los círculos que la tocan.</li>
+    </ul>
+    <div class="tip"><b>Clave táctica:</b> un policía parado en una esquina puede bloquear el paso de Jack y vigilar varios círculos a la vez.</div>
+
+    <h2>3. Una noche, paso a paso</h2>
+    <ol>
+      <li><strong>El crimen.</strong> Jack elige en secreto en qué círculo ataca. Ese es su punto de partida (el "paso 0").</li>
+      <li><strong>La caza.</strong> Por turnos: primero Jack avanza <strong>un círculo en secreto</strong>; luego cada detective se mueve <strong>0, 1 o 2 esquinas</strong> e investiga.</li>
+      <li><strong>Investigar.</strong> Desde su esquina, un detective puede hacer <em>una</em> de dos cosas en un círculo vecino:
+        <ul>
+          <li><strong>Buscar pista:</strong> "¿Pasaste por el 32?" Si Jack pasó por ahí esta noche, se coloca una <span class="pill p-yellow"></span><strong>pista amarilla</strong>.</li>
+          <li><strong>Arrestar:</strong> "¡Arrestado en el 32!" Si Jack está justo ahí en ese momento, la policía gana al instante.</li>
+        </ul>
+      </li>
+      <li><strong>El regreso.</strong> Jack intenta volver a su guarida. Si lo logra, la noche termina y empieza la siguiente. Si se le acaban los <strong>15 turnos</strong> sin llegar a casa, lo atrapan al amanecer.</li>
+    </ol>
+
+    <h2>4. Las cartas de escape de Jack</h2>
+    <table>
+      <tr><th>Movimiento</th><th>Qué hace</th></tr>
+      <tr><td><strong>Carruaje</strong> 🐎</td><td>Avanza <strong>2 círculos</strong> de golpe y puede <strong>cruzar una esquina ocupada por un policía</strong>. Limitado por noche.</td></tr>
+      <tr><td><strong>Callejón</strong> 🏮</td><td>Atraviesa entre las casas para aparecer en un círculo cercano, rompiendo la línea recta que la policía espera. Limitado por noche.</td></tr>
+    </table>
+
+    <h2>5. ¿Cómo se gana?</h2>
+    <div class="card jack"><strong>Gana Jack</strong> si completa las 4 noches volviendo siempre a su guarida sin ser atrapado.</div>
+    <div class="card police"><strong>Gana la policía</strong> si arresta a Jack en el círculo exacto donde está, o si se le agotan los 15 turnos de una noche dejándolo fuera de su guarida.</div>
+
+    <div class="rule"></div>
+    <h2>6. Cómo usar esta app</h2>
+    <p>En el lobby eliges tu <strong>rol</strong> y el <strong>modo de juego</strong>:</p>
+    <h3>🗺️ Modo Partida (manual)</h3>
+    <p>El tablero clásico: arrastras las fichas con el ratón y aplican las reglas entre ustedes (como en la mesa real). El programa esconde la información de Jack y resuelve pistas/arrestos cuando se pregunta por un número.</p>
+    <h3>🎓 Modo Aprendizaje (el árbitro)</h3>
+    <p>Pensado para aprender. El tablero muestra los puntos <strong>clicables</strong> y <strong>el programa valida todo</strong>: solo te deja hacer movimientos legales y resalta en <strong>verde</strong> los destinos posibles. Un <strong>cartelito de ayuda</strong> te dice qué hacer en cada momento.</p>
+    <div class="tip"><b>Consejo:</b> juega el modo Aprendizaje unas cuantas veces hasta dominar las reglas; luego pasen al modo Partida para la experiencia completa.</div>
+    <h3>Tu turno en modo Aprendizaje</h3>
+    <ul>
+      <li><strong>Jack:</strong> 1) <em>Fijar guarida</em> (tu escondite). 2) <em>Elegir crimen</em> en un punto rojo. 3) Cada turno: <em>Mover</em> / <em>Carruaje</em> / <em>Callejón</em> y click en un círculo verde. 4) Al final, <em>Llegué a mi guarida</em>.</li>
+      <li><strong>Detective:</strong> 1) <em>Mover</em> y click en un cuadrado verde. 2) <em>Buscar pista</em> o <em>Arrestar</em> en un círculo verde adyacente.</li>
+    </ul>
+
+    <footer>Sombras sobre Londres — guía para principiantes · cierra esta ventana para volver a la partida.</footer>
+  </div>
+</body>
+</html>
