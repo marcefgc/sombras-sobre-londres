@@ -243,6 +243,27 @@ function renderNodes(state) {
     layer.appendChild(el);
   }
   const ref = state.ref || {};
+  // Marcadores PRIVADOS de Jack: su recorrido (rastro dorado) y su guarida (🏠),
+  // para que pueda orientarse y volver a casa sin depender de los números.
+  if (myRole === 'jack') {
+    for (const step of (state.jack && state.jack.path) || []) {
+      const tn = boardGraph.nodes[step.circle];
+      if (!tn) continue;
+      const d = document.createElement('div');
+      d.className = 'gtrail';
+      d.style.left = tn.x + '%'; d.style.top = tn.y + '%';
+      layer.appendChild(d);
+    }
+    if (state.jack && state.jack.lair != null) {
+      const ln = boardGraph.nodes[state.jack.lair];
+      if (ln) {
+        const d = document.createElement('div');
+        d.className = 'glair'; d.textContent = '🏠'; d.title = 'Tu guarida';
+        d.style.left = ln.x + '%'; d.style.top = ln.y + '%';
+        layer.appendChild(d);
+      }
+    }
+  }
   for (const [who, sq] of Object.entries(ref.police || {})) {
     const node = boardGraph.nodes[sq];
     if (node) addPawn(layer, node, policePawnImg(who));
@@ -310,19 +331,18 @@ function renderJackPanel(s) {
 
 function renderJackPanelReferee(s) {
   const p = $('jackPanel');
-  const ref = s.ref || {};
-  const lair = s.jack.lair == null ? '(sin fijar — usa "Fijar guarida")' : s.jack.lair;
-  const pos = ref.jackCircle == null ? '—' : ref.jackCircle;
-  const pathStr = (s.jack.path || []).map((x) =>
-    x.circle + (x.special ? '(' + (x.special === 'carriage' ? 'C' : 'A') + ')' : '')
-  ).join(' → ');
+  // En Aprendizaje todo es visual: la guarida se marca con 🏠 en el mapa, la
+  // posición es tu peón y el recorrido es el rastro dorado. No se muestran los
+  // números internos del tablero (no coinciden con los impresos en el mapa).
+  const lairSet = s.jack.lair != null;
+  const pasos = (s.jack.path || []).length ? (s.jack.path.length - 1) : 0; // sin contar el paso 0 (crimen)
   p.innerHTML = `
     <h3>Panel de Jack (Aprendizaje)</h3>
-    <div>Guarida: <strong>${lair}</strong></div>
-    <div>Posición actual: <strong>${pos}</strong></div>
+    <div>Guarida: <strong>${lairSet ? 'marcada con 🏠 en el mapa' : 'sin fijar — usa "Fijar guarida"'}</strong></div>
+    <div>Tu posición: <strong>tu peón (la ficha de Jack)</strong></div>
     <div>Carruajes: <strong>${s.jack.carriages}</strong> · Callejones: <strong>${s.jack.alleys}</strong></div>
-    <div><small>Mueve eligiendo una acción y haciendo click en un círculo resaltado.</small></div>
-    <div><small>Ruta de esta noche:</small><br/>${pathStr || '—'}</div>
+    <div><small>Mueve eligiendo una acción y haciendo click en un círculo VERDE. Tu recorrido se marca en oro; vuelve al 🏠 y pulsa el botón.</small></div>
+    <div>Movimientos esta noche: <strong>${pasos}</strong> / 15</div>
     <hr/>
     <div class="row"><button id="reachedLairBtn">Llegué a mi guarida (fin de noche)</button></div>
   `;
@@ -454,6 +474,7 @@ socket.on('ref:rejected', ({ reason }) => {
     'círculo no adyacente': 'Solo puedes investigar/arrestar en un círculo VERDE adyacente a tu esquina. Acércate con "Mover" primero.',
     'sin carruajes': 'Ya no te quedan carruajes esta noche.',
     'sin callejones': 'Ya no te quedan callejones esta noche.',
+    'se agotó la noche (15 movimientos)': 'Gastaste tus 15 movimientos. Si no estás en tu guarida (🏠), la policía declarará el amanecer y gana.',
   };
   const tip = hints[reason] || ('Acción rechazada: ' + (reason || '') + '.');
   coachStickUntil = Date.now() + 4500;
@@ -480,12 +501,18 @@ socket.on('arrest:attempt', ({ circle }) => {
   li.textContent = '🚨 Intento de arresto en ' + circle;
   $('log').prepend(li);
 });
+// En Aprendizaje no se muestra el número interno (no coincide con el del mapa);
+// se habla del "círculo investigado". En Partida (manual) sí, porque el detective
+// preguntó por un número concreto.
+function refMode() { return lastState && lastState.game.mode === 'referee'; }
 socket.on('clue:result', ({ circle, passed }) => {
-  alert('Pista en ' + circle + ': ' + (passed ? 'SÍ pasó por aquí' : 'no pasó'));
+  const donde = refMode() ? 'ese círculo' : ('el ' + circle);
+  alert('Pista en ' + donde + ': ' + (passed ? 'el asesino SÍ pasó por aquí' : 'el asesino no pasó'));
 });
 socket.on('arrest:result', ({ circle, caught }) => {
-  alert(caught ? '¡ATRAPADO en ' + circle + '! Gana la policía.'
-               : 'Arresto fallido en ' + circle + '.');
+  const donde = refMode() ? 'ese círculo' : ('el ' + circle);
+  alert(caught ? '¡ATRAPADO en ' + donde + '! Gana la policía.'
+               : 'Arresto fallido en ' + donde + '.');
 });
 socket.on('lair:result', ({ reached, won }) => {
   if (!reached) alert('Aún no estás en tu guarida.');
