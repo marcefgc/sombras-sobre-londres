@@ -38,7 +38,7 @@ test('un detective que se une NUNCA recibe la guarida ni la ruta de Jack', async
   G.logJackStep(state, 7, null);
   const det = Client(`http://localhost:${port}`);
   const detW = stateWaiter(det);
-  det.emit('join', { name: 'Ana', role: 'det1' });
+  det.emit('join', { name: 'Ana', role: 'police', colors: ['blue'] });
   const view = await detW.wait();
   assert.strictEqual(view.jack.lair, undefined);
   assert.strictEqual(view.jack.path, undefined);
@@ -54,7 +54,7 @@ test('moveToken se propaga a otro cliente', async () => {
   const a = Client(`http://localhost:${port}`);
   const b = Client(`http://localhost:${port}`);
   const bW = stateWaiter(b);
-  a.emit('join', { name: 'A', role: 'det1' });
+  a.emit('join', { name: 'A', role: 'police', colors: ['blue'] });
   b.emit('join', { name: 'B', role: 'spectator' });
   await bW.wait();
   a.emit('addToken', { id: 'd1', type: 'detective', x: 0, y: 0, label: '1' });
@@ -90,7 +90,7 @@ test('clue:ask devuelve resultado autoritativo y notifica a Jack', async () => {
   const det = Client(`http://localhost:${port}`);
   const detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await detW.wait();
   jack.emit('jack:logStep', { circle: 32, special: null });
   await detW.wait((s) => s.game.jackMoves >= 1); // el servidor ya registró el paso
@@ -110,7 +110,7 @@ test('arrest acertado termina la partida con victoria policial', async () => {
   const det = Client(`http://localhost:${port}`);
   const detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await detW.wait();
   jack.emit('jack:logStep', { circle: 12, special: null });
   await detW.wait((s) => s.game.jackMoves >= 1);
@@ -162,7 +162,7 @@ test('phase:dawn solo termina la partida con la noche agotada en fase de caza', 
   const det = Client(`http://localhost:${port}`);
   const jackW = stateWaiter(jack), detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await jackW.wait(); await detW.wait();
 
   // (a) Desde el lobby un detective NO puede declarar el amanecer.
@@ -214,7 +214,7 @@ test('phase:nextNight y reset solo los puede ejecutar Jack', async () => {
   const det = Client(`http://localhost:${port}`);
   const jackW = stateWaiter(jack), detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await jackW.wait(); await detW.wait();
   // Un detective no avanza la noche.
   det.emit('phase:nextNight');
@@ -235,10 +235,10 @@ test('join rechaza un segundo jugador en el mismo rol y avisa', async () => {
   const a = Client(`http://localhost:${port}`);
   const b = Client(`http://localhost:${port}`);
   const aW = stateWaiter(a);
-  a.emit('join', { name: 'Ana', role: 'det1' });
+  a.emit('join', { name: 'Ana', role: 'police', colors: ['blue'] });
   await aW.wait();
   const rejected = once(b, 'join:rejected');
-  b.emit('join', { name: 'Beto', role: 'det1' });
+  b.emit('join', { name: 'Beto', role: 'police', colors: ['blue'] });
   const r = await rejected;
   assert.ok(r.reason);
   a.close(); b.close();
@@ -268,7 +268,7 @@ test('setMode referee se propaga y bloquea info privada del asesino', async () =
   const det = Client(`http://localhost:${port}`);
   const jackW = stateWaiter(jack), detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await jackW.wait(); await detW.wait();
   jack.emit('setMode', { mode: 'referee' });
   const c = B.data.crimeStarts[0];
@@ -325,7 +325,7 @@ test('caza por turnos: la policía solo actúa en su turno, se coloca, busca y a
   const det = Client(`http://localhost:${port}`);
   const jackW = stateWaiter(jack), detW = stateWaiter(det);
   jack.emit('join', { name: 'J', role: 'jack' });
-  det.emit('join', { name: 'D', role: 'det1' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
   await jackW.wait(); await detW.wait();
   jack.emit('setMode', { mode: 'referee' });
   // crimen en un círculo con vecino conectado por un cuadrado (via)
@@ -334,18 +334,17 @@ test('caza por turnos: la policía solo actúa en su turno, se coloca, busca y a
   jack.emit('ref:startCrime', { circle: c });
   await jackW.wait((s) => s.ref && s.ref.jackCircle === c);
   // Es el turno de Jack: la policía NO puede moverse todavía.
-  const rejected = await new Promise((r) => { det.once('ref:rejected', r); det.emit('ref:movePolice', { square: sq }); });
+  const rejected = await new Promise((r) => { det.once('ref:rejected', r); det.emit('ref:movePolice', { color: 'blue', square: sq }); });
   assert.match(rejected.reason, /turno de la polic/i);
-  // El detective ve que es turno de Jack y aún no tiene cuadrados legales.
   assert.strictEqual(detW.latest.game.turn, 'jack');
   // Jack se mueve -> pasa el turno a la policía.
   jack.emit('ref:moveJack', { circle: n1, kind: 'normal' });
   const dv = await detW.wait((s) => s.game.turn === 'police');
-  assert.ok(dv.ref.legalSquares.length > 0); // ya puede colocarse (1ª colocación libre)
-  // La policía se coloca y busca pista en el círculo PASADO (c) -> SÍ.
-  det.emit('ref:movePolice', { square: sq });
-  await detW.wait((s) => s.ref.police['det1'] === sq);
-  const res = await new Promise((r) => { det.once('clue:result', r); det.emit('ref:search', { circle: c }); });
+  assert.ok(dv.ref.byColor.blue.legalSquares.length > 0); // ya puede colocar su ficha azul
+  // La policía coloca su ficha azul y busca pista en el círculo PASADO (c) -> SÍ.
+  det.emit('ref:movePolice', { color: 'blue', square: sq });
+  await detW.wait((s) => s.ref.police['blue'] === sq);
+  const res = await new Promise((r) => { det.once('clue:result', r); det.emit('ref:search', { color: 'blue', circle: c }); });
   assert.strictEqual(res.passed, true);
   // Actuó el único detective -> auto-fin del turno de policía -> vuelve a Jack.
   await jackW.wait((s) => s.game.turn === 'jack');

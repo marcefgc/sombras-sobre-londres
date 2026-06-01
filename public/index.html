@@ -17,13 +17,20 @@
     <input id="name" placeholder="Tu nombre" />
     <select id="role">
       <option value="jack">Jack el Destripador</option>
-      <option value="det1">Detective 1</option>
-      <option value="det2">Detective 2</option>
-      <option value="det3">Detective 3</option>
-      <option value="det4">Detective 4</option>
-      <option value="det5">Detective 5</option>
+      <option value="police">Policía</option>
       <option value="spectator">Espectador</option>
     </select>
+    <div id="colorPick" hidden>
+      <label class="mode-label">FICHAS QUE CONTROLAS</label>
+      <div id="colorRow" class="color-row">
+        <label><input type="checkbox" class="colorChk" value="blue" /> <span class="cdot" data-c="blue"></span> Azul</label>
+        <label><input type="checkbox" class="colorChk" value="green" /> <span class="cdot" data-c="green"></span> Verde</label>
+        <label><input type="checkbox" class="colorChk" value="red" /> <span class="cdot" data-c="red"></span> Rojo</label>
+        <label><input type="checkbox" class="colorChk" value="yellow" /> <span class="cdot" data-c="yellow"></span> Amarillo</label>
+        <label><input type="checkbox" class="colorChk" value="purple" /> <span class="cdot" data-c="purple"></span> Morado</label>
+      </div>
+      <small id="colorHint" style="color:#5a3d22;">Si juegas solo de policía, marca las 5. Con más amigos, repártanse.</small>
+    </div>
     <label class="mode-label">MODO DE JUEGO</label>
     <select id="mode">
       <option value="manual">Partida — fichas libres (manual)</option>

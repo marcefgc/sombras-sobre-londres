@@ -8,21 +8,22 @@ const MOVES_PER_NIGHT = 15;
 // guarida o amanece y gana la policía.
 function movesExhausted(state) { return state.game.jackMoves >= MOVES_PER_NIGHT; }
 
-// Roles de los que solo puede haber UNO a la vez. El espectador no tiene límite.
-const SINGULAR_ROLES = ['jack', 'det1', 'det2', 'det3', 'det4', 'det5'];
+// Los cinco colores de la policía. Cada color es una ficha; un jugador-policía
+// controla uno o varios colores.
+const POLICE_COLORS = ['blue', 'green', 'red', 'yellow', 'purple'];
 
 function createGame() {
   return {
     game: { night: 1, phase: 'lobby', jackMoves: 0, turn: 'jack', mode: 'manual' },
     players: {},
-    // Reserva de cada rol singular por nombre. Persiste tras una desconexión para
-    // permitir reconexión por nombre y, a la vez, impedir que otro jugador se
-    // apropie de un rol (y con él, p. ej., la información secreta de Jack).
-    roleClaims: {},
+    // Reservas por NOMBRE (persisten tras desconexión para permitir reconexión y
+    // evitar que otro se apropie del rol/color). jackName: quién es Jack;
+    // colorOwners: qué jugador posee cada ficha de color.
+    jackName: null,
+    colorOwners: { blue: null, green: null, red: null, yellow: null, purple: null },
     tokens: [],
     jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT },
-    // ref: estado del modo Aprendizaje. moved/acted registran qué peones ya
-    // se movieron/actuaron en el turno de policía en curso.
+    // ref: estado del modo Aprendizaje. police/moved/acted se indexan por COLOR.
     ref: { jackCircle: null, police: {}, moved: {}, acted: {} },
     log: [],
   };
@@ -33,24 +34,41 @@ function setMode(state, mode) {
   state.game.mode = m;
   state.ref = { jackCircle: null, police: {}, moved: {}, acted: {} };
 }
-// Devuelve { ok } o { ok:false, reason }. Valida nombre no vacío (#9), unicidad
-// de rol (#8) y reconexión por nombre (#7).
-function addPlayer(state, socketId, name, role) {
+// Devuelve { ok } o { ok:false, reason }. Valida nombre, unicidad de Jack y de
+// cada color, y reconexión por nombre. `colors` solo aplica al rol 'police'.
+function addPlayer(state, socketId, name, role, colors) {
   const clean = String(name == null ? '' : name).trim();
   if (!clean) return { ok: false, reason: 'nombre requerido' };
-  if (SINGULAR_ROLES.includes(role)) {
-    const taken = Object.values(state.players).some((p) => p.role === role);
-    if (taken) return { ok: false, reason: 'rol ya ocupado' };
-    const claim = state.roleClaims[role];
-    if (claim != null && claim !== clean) return { ok: false, reason: 'rol reservado por otro jugador' };
-    state.roleClaims[role] = clean;
+  if (role === 'jack') {
+    if (state.jackName != null && state.jackName !== clean) return { ok: false, reason: 'rol ya ocupado' };
+    state.jackName = clean;
+    state.players[socketId] = { name: clean, role: 'jack', colors: [] };
+    return { ok: true };
   }
-  state.players[socketId] = { name: clean, role };
+  if (role === 'police') {
+    const req = (Array.isArray(colors) ? colors : []).filter((c) => POLICE_COLORS.includes(c));
+    if (req.length === 0) return { ok: false, reason: 'elige al menos un color' };
+    for (const c of req) {
+      const owner = state.colorOwners[c];
+      if (owner != null && owner !== clean) return { ok: false, reason: 'color ya ocupado: ' + c };
+    }
+    for (const c of req) state.colorOwners[c] = clean;
+    state.players[socketId] = { name: clean, role: 'police', colors: req };
+    return { ok: true };
+  }
+  // Espectador: sin reservas.
+  state.players[socketId] = { name: clean, role: 'spectator', colors: [] };
   return { ok: true };
 }
-// No se borra la reserva del rol: así el mismo nombre puede reconectar y nadie
-// más puede tomar ese rol mientras la partida sigue.
+// No se borran las reservas (jackName/colorOwners): así el mismo nombre puede
+// reconectar y nadie más puede tomar ese rol/color mientras la partida sigue.
 function removePlayer(state, socketId) { delete state.players[socketId]; }
+// Colores que están en juego (reclamados por algún policía conectado).
+function activeColors(state) {
+  const set = new Set();
+  for (const p of Object.values(state.players)) if (p.role === 'police') for (const c of p.colors) set.add(c);
+  return [...set];
+}
 
 function upsertToken(state, token) {
   const i = state.tokens.findIndex((t) => t.id === token.id);
@@ -118,4 +136,4 @@ function viewFor(state, role) {
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, createGame, setMode, addPlayer, removePlayer, upsertToken, moveToken, removeToken, setLair, logJackStep, movesExhausted, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, POLICE_COLORS, createGame, setMode, addPlayer, removePlayer, activeColors, upsertToken, moveToken, removeToken, setLair, logJackStep, movesExhausted, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };

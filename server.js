@@ -18,12 +18,15 @@ function createServer() {
   // an unchanged state would consume a poll and let the next real update slip
   // through the gap between `once` re-registrations. Deduping avoids that race.
   const lastSent = new Map();
-  function viewForRole(role) {
+  // Vista por JUGADOR. player = { role, colors }. Añade los datos del modo
+  // Aprendizaje (destinos legales) y `me` (rol y colores propios).
+  function viewForPlayer(player) {
+    const role = player.role;
     const view = G.viewFor(state, role);
+    view.me = { role, colors: player.colors || [] };
     if (state.game.mode === 'referee' && state.ref) {
       const turn = state.game.turn;
       if (role === 'jack') {
-        // Destinos legales solo en el turno de Jack.
         if (turn === 'jack' && state.ref.jackCircle != null) {
           view.ref.legal = {
             normal: R.legalNormalTargets(state),
@@ -33,36 +36,32 @@ function createServer() {
         } else {
           view.ref.legal = { normal: [], carriage: [], alley: [] };
         }
-      } else if (role && role.startsWith('det')) {
-        const placed = state.ref.police[role] != null;
-        const moved = !!(state.ref.moved && state.ref.moved[role]);
-        const acted = !!(state.ref.acted && state.ref.acted[role]);
-        // Cuadrados a los que puede ir: si no está colocado, cualquiera libre;
-        // si ya, los de a ≤2. Solo en turno de policía y si no se ha movido.
-        if (turn === 'police' && !moved) {
-          view.ref.legalSquares = placed ? R.reachableSquares(state, state.ref.police[role], 2) : R.placementSquares(state);
-        } else {
-          view.ref.legalSquares = [];
+      } else if (role === 'police') {
+        // Por cada FICHA (color) del jugador: dónde puede ir y qué investigar.
+        view.ref.byColor = {};
+        for (const color of (player.colors || [])) {
+          const placed = state.ref.police[color] != null;
+          const moved = !!(state.ref.moved && state.ref.moved[color]);
+          const acted = !!(state.ref.acted && state.ref.acted[color]);
+          const legalSquares = (turn === 'police' && !moved)
+            ? (placed ? R.reachableSquares(state, state.ref.police[color], 2) : R.placementSquares(state))
+            : [];
+          const searchable = (turn === 'police' && placed && !acted) ? R.circlesAroundPolice(state, color) : [];
+          view.ref.byColor[color] = { placed, moved, acted, legalSquares, searchable };
         }
-        // Círculos investigables: solo en turno de policía, colocado y sin actuar.
-        view.ref.searchable = (turn === 'police' && placed && !acted) ? R.circlesAroundPolice(state, role) : [];
       }
     }
     return view;
   }
-  // Roles detective actualmente conectados (para el auto-fin del turno de policía).
-  function detRolesPresent() {
-    return Object.values(state.players).map((p) => p.role).filter((r) => r && r.startsWith('det'));
-  }
   function maybeEndPoliceTurn() {
     if (state.game.mode === 'referee' && state.game.turn === 'police'
-        && R.allPoliceActed(state, detRolesPresent())) {
+        && R.allPoliceActed(state, G.activeColors(state))) {
       R.endPoliceTurn(state);
     }
   }
   function emitStates() {
     for (const [id, p] of Object.entries(state.players)) {
-      const json = JSON.stringify(viewForRole(p.role));
+      const json = JSON.stringify(viewForPlayer(p));
       if (lastSent.get(id) === json) continue;
       lastSent.set(id, json);
       io.to(id).emit('state', JSON.parse(json));
@@ -81,16 +80,18 @@ function createServer() {
   }
 
   io.on('connection', (socket) => {
+    function me() { return state.players[socket.id]; }
     function roleOf() { return state.players[socket.id] && state.players[socket.id].role; }
+    function ownsColor(color) { const p = me(); return !!(p && p.role === 'police' && p.colors.includes(color)); }
     function jackSocketId() {
       const e = Object.entries(state.players).find(([, p]) => p.role === 'jack');
       return e ? e[0] : null;
     }
 
-    socket.on('join', ({ name, role }) => {
-      const r = G.addPlayer(state, socket.id, name, role);
+    socket.on('join', ({ name, role, colors }) => {
+      const r = G.addPlayer(state, socket.id, name, role, colors);
       if (!r.ok) { socket.emit('join:rejected', { reason: r.reason }); return; }
-      const json = JSON.stringify(viewForRole(role));
+      const json = JSON.stringify(viewForPlayer(state.players[socket.id]));
       lastSent.set(socket.id, json);
       socket.emit('state', JSON.parse(json));
       sendStates();
@@ -173,7 +174,7 @@ function createServer() {
     // cuando la noche realmente se agotó. Antes cualquiera ganaba al instante.
     socket.on('phase:dawn', () => {
       const role = roleOf();
-      const isPlayer = role === 'jack' || (role && role.startsWith('det'));
+      const isPlayer = role === 'jack' || role === 'police';
       if (!isPlayer || state.game.phase !== 'hunt' || !G.movesExhausted(state)) {
         state.log.push('Amanecer rechazado: solo al agotarse la noche en plena caza.');
         sendStates();
@@ -220,24 +221,24 @@ function createServer() {
       if (!r.ok) { state.log.push('Movimiento rechazado: ' + r.reason); socket.emit('ref:rejected', r); sendStates(); return; }
       sendStates();
     });
-    socket.on('ref:movePolice', ({ square }) => {
-      if (state.game.mode !== 'referee') return;
-      const r = R.movePolice(state, roleOf(), square);
+    socket.on('ref:movePolice', ({ color, square }) => {
+      if (state.game.mode !== 'referee' || !ownsColor(color)) return;
+      const r = R.movePolice(state, color, square);
       if (!r.ok) return socket.emit('ref:rejected', r);
       sendStates();
     });
-    socket.on('ref:search', ({ circle }) => {
-      if (state.game.mode !== 'referee') return;
-      const r = R.searchClue(state, roleOf(), circle);
+    socket.on('ref:search', ({ color, circle }) => {
+      if (state.game.mode !== 'referee' || !ownsColor(color)) return;
+      const r = R.searchClue(state, color, circle);
       if (!r.ok) return socket.emit('ref:rejected', r);
       io.emit('clue:result', { circle, passed: r.passed });
       const jid = jackSocketId(); if (jid) io.to(jid).emit('clue:asked', { circle });
       maybeEndPoliceTurn();
       sendStates();
     });
-    socket.on('ref:arrest', ({ circle }) => {
-      if (state.game.mode !== 'referee') return;
-      const r = R.arrest(state, roleOf(), circle);
+    socket.on('ref:arrest', ({ color, circle }) => {
+      if (state.game.mode !== 'referee' || !ownsColor(color)) return;
+      const r = R.arrest(state, color, circle);
       if (!r.ok) return socket.emit('ref:rejected', r);
       io.emit('arrest:result', { circle, caught: r.caught });
       const jid = jackSocketId(); if (jid) io.to(jid).emit('arrest:attempt', { circle });
@@ -246,8 +247,7 @@ function createServer() {
     });
     socket.on('ref:endPoliceTurn', () => {
       if (state.game.mode !== 'referee') return;
-      const role = roleOf();
-      if (!(role && role.startsWith('det'))) return; // solo la policía termina su turno
+      if (roleOf() !== 'police') return; // solo la policía termina su turno
       if (state.game.turn !== 'police') return;
       R.endPoliceTurn(state);
       sendStates();

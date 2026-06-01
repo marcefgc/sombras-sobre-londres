@@ -15,42 +15,55 @@ test('createGame tiene valores por defecto', () => {
   assert.strictEqual(s.jack.alleys, 3);
 });
 
-test('addPlayer y removePlayer', () => {
+test('addPlayer y removePlayer (policía con un color)', () => {
   const s = G.createGame();
-  const r = G.addPlayer(s, 'sock1', 'Ana', 'det1');
+  const r = G.addPlayer(s, 'sock1', 'Ana', 'police', ['blue']);
   assert.strictEqual(r.ok, true);
-  assert.deepStrictEqual(s.players['sock1'], { name: 'Ana', role: 'det1' });
+  assert.deepStrictEqual(s.players['sock1'], { name: 'Ana', role: 'police', colors: ['blue'] });
+  assert.strictEqual(s.colorOwners.blue, 'Ana');
   G.removePlayer(s, 'sock1');
   assert.strictEqual(s.players['sock1'], undefined);
 });
 test('addPlayer rechaza nombre vacío', () => {
   const s = G.createGame();
-  const r = G.addPlayer(s, 'sock1', '   ', 'det1');
+  const r = G.addPlayer(s, 'sock1', '   ', 'police', ['blue']);
   assert.strictEqual(r.ok, false);
   assert.strictEqual(s.players['sock1'], undefined);
 });
-test('addPlayer impide dos jugadores en el mismo rol singular', () => {
+test('addPlayer: police requiere al menos un color', () => {
+  const s = G.createGame();
+  const r = G.addPlayer(s, 'a', 'Ana', 'police', []);
+  assert.strictEqual(r.ok, false);
+});
+test('addPlayer impide dos jugadores como Jack y dos en el mismo color', () => {
   const s = G.createGame();
   assert.strictEqual(G.addPlayer(s, 'a', 'Ana', 'jack').ok, true);
-  const r = G.addPlayer(s, 'b', 'Beto', 'jack');
-  assert.strictEqual(r.ok, false);
-  assert.strictEqual(s.players['b'], undefined);
+  assert.strictEqual(G.addPlayer(s, 'b', 'Beto', 'jack').ok, false);
+  // Reparto de colores: Ana toma rojo+verde, Beto toma azul; rojo ya no está libre.
+  assert.strictEqual(G.addPlayer(s, 'c', 'Cora', 'police', ['red', 'green']).ok, true);
+  assert.strictEqual(G.addPlayer(s, 'd', 'Dani', 'police', ['blue']).ok, true);
+  assert.strictEqual(G.addPlayer(s, 'e', 'Eva', 'police', ['red']).ok, false);
+  assert.deepStrictEqual(G.activeColors(s).sort(), ['blue', 'green', 'red']);
 });
 test('addPlayer permite múltiples espectadores', () => {
   const s = G.createGame();
   assert.strictEqual(G.addPlayer(s, 'a', 'Ana', 'spectator').ok, true);
   assert.strictEqual(G.addPlayer(s, 'b', 'Beto', 'spectator').ok, true);
 });
+test('un solo policía puede tomar las 5 fichas', () => {
+  const s = G.createGame();
+  const r = G.addPlayer(s, 'a', 'Ana', 'police', ['blue', 'green', 'red', 'yellow', 'purple']);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(s.players['a'].colors.length, 5);
+});
 test('addPlayer permite reconexión por nombre y bloquea a un nombre distinto', () => {
   const s = G.createGame();
   assert.strictEqual(G.addPlayer(s, 'sock1', 'Ana', 'jack').ok, true);
-  G.removePlayer(s, 'sock1'); // Jack se desconecta; su reserva de rol persiste
-  // Un nombre distinto NO puede apropiarse del rol (protege la info secreta).
+  G.removePlayer(s, 'sock1'); // Jack se desconecta; su reserva de nombre persiste
   assert.strictEqual(G.addPlayer(s, 'sock2', 'Mallory', 'jack').ok, false);
-  // El mismo nombre reconecta y recupera su rol.
   const r = G.addPlayer(s, 'sock3', 'Ana', 'jack');
   assert.strictEqual(r.ok, true);
-  assert.deepStrictEqual(s.players['sock3'], { name: 'Ana', role: 'jack' });
+  assert.deepStrictEqual(s.players['sock3'], { name: 'Ana', role: 'jack', colors: [] });
 });
 
 test('upsertToken agrega y actualiza por id', () => {
@@ -154,7 +167,7 @@ test('viewFor para Jack incluye guarida y ruta', () => {
 });
 test('viewFor para detective NUNCA expone guarida ni ruta', () => {
   const s = G.createGame(); G.setLair(s, 42); G.logJackStep(s, 7, null);
-  const v = G.viewFor(s, 'det1');
+  const v = G.viewFor(s, 'police');
   assert.strictEqual(v.jack.lair, undefined);
   assert.strictEqual(v.jack.path, undefined);
   assert.strictEqual(v.jack.carriages, 2);
@@ -169,7 +182,7 @@ test('viewFor para espectador tampoco expone info privada', () => {
 test('viewFor incluye estado público compartido', () => {
   const s = G.createGame();
   G.upsertToken(s, { id: 'd1', type: 'detective', x: 1, y: 2, label: '1' });
-  const v = G.viewFor(s, 'det1');
+  const v = G.viewFor(s, 'police');
   assert.strictEqual(v.game.night, 1);
   assert.strictEqual(v.tokens.length, 1);
   assert.ok(Array.isArray(v.log));
@@ -220,7 +233,7 @@ test('viewFor no expone ref.jackCircle a no-Jack', () => {
   const s = G.createGame();
   G.setMode(s, 'referee');
   s.ref.jackCircle = 10;
-  const v = G.viewFor(s, 'det1');
+  const v = G.viewFor(s, 'police');
   assert.strictEqual(v.ref.jackCircle, undefined);
   assert.deepStrictEqual(v.ref.police, {});
 });

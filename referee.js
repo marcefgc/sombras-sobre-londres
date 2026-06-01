@@ -98,6 +98,7 @@ function reachableSquares(state, from, steps) {
 
 function movePolice(state, who, square) {
   if (state.game.turn !== 'police') return { ok: false, reason: 'no es el turno de la policía' };
+  if (B.node(square) == null || B.node(square).type !== 'square') return { ok: false, reason: 'cuadrado inválido' };
   if (state.ref.moved[who]) return { ok: false, reason: 'ese detective ya se movió este turno' };
   const from = state.ref.police[who];
   if (from == null) {

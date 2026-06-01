@@ -1,6 +1,8 @@
 const socket = io();
 let myRole = null;
 let myName = null;
+let myColors = [];          // colores (fichas) que controla este policía
+let activeColor = null;     // ficha activa con la que actúa en el modo Aprendizaje
 let lastState = null;
 
 // Modo Aprendizaje (árbitro): grafo del tablero + acción activa + control de re-build.
@@ -28,10 +30,20 @@ function tokenImg(t) {
   return 'assets/tokens/patrol.png';
 }
 
+// Mostrar el selector de colores solo cuando el rol es Policía.
+$('role').onchange = () => { $('colorPick').hidden = $('role').value !== 'police'; };
+
 $('joinBtn').onclick = () => {
   myName = $('name').value.trim() || 'Jugador';
   myRole = $('role').value;
-  socket.emit('join', { name: myName, role: myRole });
+  let colors = [];
+  if (myRole === 'police') {
+    colors = [...document.querySelectorAll('.colorChk:checked')].map((c) => c.value);
+    if (colors.length === 0) { alert('Como policía, marca al menos una ficha (color).'); return; }
+  }
+  myColors = colors;
+  activeColor = colors[0] || null;
+  socket.emit('join', { name: myName, role: myRole, colors });
   socket.emit('setMode', { mode: $('mode').value });
   $('lobby').hidden = true;
   $('game').hidden = false;
@@ -62,6 +74,11 @@ $('coachReopen').onclick = () => { coachHidden = false; $('coachReopen').hidden 
 
 socket.on('state', (state) => {
   lastState = state;
+  // Sincroniza los colores confirmados por el servidor.
+  if (state.me) {
+    myColors = state.me.colors || [];
+    if (!activeColor || !myColors.includes(activeColor)) activeColor = myColors[0] || null;
+  }
   renderStatus(state);
   renderBoard(state);
   renderLog(state);
@@ -108,14 +125,16 @@ function coachTip(state) {
     if (g.jackMoves >= 13) return 'Te quedan pocos turnos ⏳. Vuelve a tu guarida (🏠) y pulsa "Llegué a mi guarida". Si te bloquean, usa "Carruaje" o "Callejón".';
     return 'Tu turno: pulsa "Mover" y haz click en un círculo VERDE para avanzar en secreto. "Carruaje" salta 2 y cruza bloqueos; "Callejón" cambia de calle. Luego juega la policía.';
   }
-  if (myRole && myRole.startsWith('det')) {
-    if (g.phase !== 'hunt') return 'Eres detective 🔎. Espera a que Jack cometa su primer crimen; cuando empiece la caza jugaréis por turnos.';
+  if (myRole === 'police') {
+    if (g.phase !== 'hunt') return 'Eres policía 🔎. Espera a que Jack cometa su primer crimen; cuando empiece la caza jugaréis por turnos.';
     if (g.turn === 'jack') return 'Espera ⏳: Jack se está moviendo en secreto. Cuando termine, será vuestro turno.';
-    const placed = ref.police && ref.police[myRole] != null;
-    const acted = ref.acted && ref.acted[myRole];
-    if (!placed) return 'Tu turno 🔎: coloca tu detective — pulsa "Mover" y haz click en un CUADRADO verde (una esquina).';
-    if (acted) return 'Ya actuaste este turno. Espera a los demás detectives o pulsa "Terminar turno de policía".';
-    return 'Pulsa "Buscar pista" y click en un círculo VERDE adyacente; o "Mover" para acercarte; o "Arrestar" si sabes dónde está Jack. Al terminar, "Terminar turno de policía".';
+    const multi = myColors.length > 1 ? ' (con varias fichas, elige el color arriba antes de actuar)' : '';
+    const bc = (ref.byColor && ref.byColor[activeColor]) || {};
+    const placed = bc.placed;
+    const acted = bc.acted;
+    if (!placed) return 'Tu turno 🔎: coloca tu ficha — pulsa "Mover" y haz click en un CUADRADO verde (una esquina)' + multi + '.';
+    if (acted) return 'Esa ficha ya actuó. Cambia de color si tienes más, o pulsa "Terminar turno de policía".';
+    return 'Pulsa "Buscar pista" y click en un círculo VERDE adyacente; o "Mover" para acercarte; o "Arrestar". Al terminar todas tus fichas, "Terminar turno de policía"' + multi + '.';
   }
   return '';
 }
@@ -207,10 +226,8 @@ function makeDraggable(el, id) {
 }
 
 // ---- Modo Aprendizaje: tablero de nodos clicable ----
-function policePawnImg(who) {
-  const n = parseInt(String(who).replace('det', ''), 10);
-  const color = POLICE_COLORS[(Number.isNaN(n) ? 1 : n) - 1] || 'blue';
-  return 'assets/tokens/police-' + color + '.png';
+function policePawnImgByColor(color) {
+  return 'assets/tokens/police-' + (POLICE_COLORS.includes(color) ? color : 'blue') + '.png';
 }
 function addPawn(layer, node, src) {
   const p = document.createElement('img');
@@ -230,9 +247,10 @@ function highlightSets(state) {
     else if (refAction === 'carriage') (L.carriage || []).forEach((c) => circleHi.add(c));
     else if (refAction === 'alley') (L.alley || []).forEach((c) => circleHi.add(c));
     else if (refAction === 'lair') boardGraph.nodes.forEach((n) => { if (n.type === 'circle') circleHi.add(n.id); });
-  } else if (myRole && myRole.startsWith('det')) {
-    if (refAction === 'move') (ref.legalSquares || []).forEach((s) => squareHi.add(s));
-    else if (refAction === 'search' || refAction === 'arrest') (ref.searchable || []).forEach((c) => circleHi.add(c));
+  } else if (myRole === 'police' && activeColor) {
+    const bc = (ref.byColor && ref.byColor[activeColor]) || {};
+    if (refAction === 'move') (bc.legalSquares || []).forEach((s) => squareHi.add(s));
+    else if (refAction === 'search' || refAction === 'arrest') (bc.searchable || []).forEach((c) => circleHi.add(c));
   }
   return { circleHi, squareHi };
 }
@@ -272,9 +290,9 @@ function renderNodes(state) {
       }
     }
   }
-  for (const [who, sq] of Object.entries(ref.police || {})) {
+  for (const [color, sq] of Object.entries(ref.police || {})) {
     const node = boardGraph.nodes[sq];
-    if (node) addPawn(layer, node, policePawnImg(who));
+    if (node) addPawn(layer, node, policePawnImgByColor(color));
   }
   if (myRole === 'jack' && ref.jackCircle != null) {
     const node = boardGraph.nodes[ref.jackCircle];
@@ -288,10 +306,10 @@ function onNodeClick(n) {
     else if (refAction === 'normal' || refAction === 'carriage' || refAction === 'alley') {
       socket.emit('ref:moveJack', { circle: n.id, kind: refAction });
     }
-  } else if (myRole && myRole.startsWith('det')) {
-    if (refAction === 'move') socket.emit('ref:movePolice', { square: n.id });
-    else if (refAction === 'search') socket.emit('ref:search', { circle: n.id });
-    else if (refAction === 'arrest') socket.emit('ref:arrest', { circle: n.id });
+  } else if (myRole === 'police' && activeColor) {
+    if (refAction === 'move') socket.emit('ref:movePolice', { color: activeColor, square: n.id });
+    else if (refAction === 'search') socket.emit('ref:search', { color: activeColor, circle: n.id });
+    else if (refAction === 'arrest') socket.emit('ref:arrest', { color: activeColor, circle: n.id });
   }
 }
 
@@ -457,7 +475,26 @@ function buildRefControls() {
     row(mk('Elegir crimen', 'startcrime'));
     row(mk('Mover', 'normal'), mk('Carruaje', 'carriage'), mk('Callejón', 'alley'));
     row(mk('Fijar guarida', 'lair'));
-  } else if (myRole && myRole.startsWith('det')) {
+  } else if (myRole === 'police') {
+    // Selector de ficha (color) si controlas más de una.
+    if (myColors.length > 1) {
+      const sel = document.createElement('div'); sel.className = 'row';
+      sel.innerHTML = '<small style="color:#cdb98a">Ficha activa:</small>';
+      for (const col of myColors) {
+        const b = document.createElement('button');
+        b.dataset.color = col;
+        b.innerHTML = '<span class="cdot" data-c="' + col + '"></span>';
+        b.classList.toggle('act-on', col === activeColor);
+        b.onclick = () => {
+          activeColor = col;
+          for (const x of sel.querySelectorAll('button[data-color]')) x.classList.toggle('act-on', x === b);
+          if (lastState) renderNodes(lastState);
+          updateCoach(lastState);
+        };
+        sel.appendChild(b);
+      }
+      c.appendChild(sel);
+    }
     row(mk('Mover', 'move'), mk('Buscar pista', 'search'), mk('Arrestar', 'arrest'));
     const endRow = document.createElement('div'); endRow.className = 'row';
     endRow.innerHTML = '<button id="endTurnBtn">Terminar turno de policía</button>';
