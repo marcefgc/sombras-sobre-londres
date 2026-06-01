@@ -22,7 +22,8 @@ function createGame() {
     jackName: null,
     colorOwners: { blue: null, green: null, red: null, yellow: null, purple: null },
     tokens: [],
-    jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT },
+    // history: círculos registrados por noche ya cerrada (para la libreta de Jack).
+    jack: { lair: null, path: [], carriages: CARRIAGES_PER_NIGHT, alleys: ALLEYS_PER_NIGHT, history: {} },
     // ref: estado del modo Aprendizaje. police/moved/acted se indexan por COLOR.
     ref: { jackCircle: null, police: {}, moved: {}, acted: {} },
     log: [],
@@ -112,7 +113,13 @@ function startCrime(state, circle) {
   state.jack.path = [{ step: 0, circle: Number(circle), special: null }];
   state.log.push('Comienza la caza: crimen en ' + circle);
 }
+// Alterna el turno (modo libre: guiado, sin bloquear).
+function passTurn(state) {
+  state.game.turn = state.game.turn === 'jack' ? 'police' : 'jack';
+}
 function nextNight(state) {
+  // Guarda el recorrido de la noche que termina para la libreta de Jack.
+  (state.jack.history || (state.jack.history = {}))[state.game.night] = state.jack.path.map((p) => p.circle);
   state.game.night += 1;
   state.game.phase = 'crime-prep';
   state.game.jackMoves = 0;
@@ -136,4 +143,4 @@ function viewFor(state, role) {
   return view;
 }
 
-module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, POLICE_COLORS, createGame, setMode, addPlayer, removePlayer, activeColors, upsertToken, moveToken, removeToken, setLair, logJackStep, movesExhausted, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, viewFor };
+module.exports = { CARRIAGES_PER_NIGHT, ALLEYS_PER_NIGHT, TOTAL_NIGHTS, MOVES_PER_NIGHT, POLICE_COLORS, createGame, setMode, addPlayer, removePlayer, activeColors, upsertToken, moveToken, removeToken, setLair, logJackStep, movesExhausted, getJackCircle, checkClue, checkArrest, checkLairReached, startCrimePrep, startCrime, nextNight, endGame, passTurn, viewFor };

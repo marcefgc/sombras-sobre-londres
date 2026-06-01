@@ -245,7 +245,7 @@ test('join rechaza un segundo jugador en el mismo rol y avisa', async () => {
   await new Promise((r) => server.close(r));
 });
 
-test('phase:startCrime manual rechaza un número que no es círculo', async () => {
+test('phase:startCrime manual rechaza basura pero acepta un número del mapa', async () => {
   const { server } = createServer();
   await new Promise((r) => server.listen(0, r));
   const port = server.address().port;
@@ -253,9 +253,13 @@ test('phase:startCrime manual rechaza un número que no es círculo', async () =
   const jackW = stateWaiter(jack);
   jack.emit('join', { name: 'J', role: 'jack' });
   await jackW.wait();
-  jack.emit('phase:startCrime', { circle: 99999 }); // no existe en el tablero
+  jack.emit('phase:startCrime', { circle: 99999 }); // fuera del rango de casillas
   await new Promise((r) => setTimeout(r, 50));
   assert.notStrictEqual(jackW.latest.game.phase, 'hunt');
+  // Un número de casilla del mapa (p. ej. 100) sí se acepta.
+  jack.emit('phase:startCrime', { circle: 100 });
+  await jackW.wait((s) => s.game.phase === 'hunt');
+  assert.strictEqual(jackW.latest.jack ? jackW.latest.jack.path[0].circle : null, 100);
   jack.close();
   await new Promise((r) => server.close(r));
 });

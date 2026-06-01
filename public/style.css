@@ -288,3 +288,22 @@ button.ghost:hover { background: rgba(90,61,34,.12); border-color: #5a3d22; }
 .cdot[data-c="red"] { background: #c62828; }
 .cdot[data-c="yellow"] { background: #f9a825; }
 .cdot[data-c="purple"] { background: #6a1b9a; }
+
+/* Libreta de Jack — "Jack's Move Track" (modo libre) */
+.movetrack { background: #e8dcc0; color: #3a281a; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; }
+.mt-title { text-align: center; color: var(--blood); font-family: Georgia, serif; margin: 2px 0 8px; border: none; letter-spacing: .04em; }
+.mt-line { color: #3a281a; margin: 2px 0 6px; font-size: 14px; }
+.mt-tok { height: 18px; vertical-align: middle; }
+.mt-wrap { overflow-x: auto; margin: 8px 0; }
+.mt-grid { border-collapse: collapse; font-size: 11px; color: #3a281a; }
+.mt-grid th, .mt-grid td { border: 1px solid #b89b6a; width: 18px; height: 18px; text-align: center; padding: 0; }
+.mt-grid th { background: rgba(122,20,15,.12); color: #5a1810; }
+.mt-cn { width: auto !important; padding: 0 4px !important; white-space: nowrap; font-weight: bold; }
+.mt-cn small { color: #7a4a10; font-weight: normal; }
+.mt-ch, .mt-hideout { background: rgba(239,159,39,.28); font-weight: bold; }
+.mt-active td { background: rgba(255,250,235,.55); }
+.mt-next { outline: 2px solid var(--blood); outline-offset: -2px; }
+
+/* Tira de libretas de policía (por color) */
+.pnotes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.pnote { width: 70px; height: auto; border-radius: 4px; border: 1px solid rgba(150,120,70,.4); box-shadow: 0 3px 8px rgba(0,0,0,.4); }

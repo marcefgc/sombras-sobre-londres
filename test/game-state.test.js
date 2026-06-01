@@ -245,3 +245,17 @@ test('viewFor expone ref.jackCircle a Jack', () => {
   const v = G.viewFor(s, 'jack');
   assert.strictEqual(v.ref.jackCircle, 10);
 });
+
+test('passTurn alterna el turno', () => {
+  const s = G.createGame();
+  assert.strictEqual(s.game.turn, 'jack');
+  G.passTurn(s); assert.strictEqual(s.game.turn, 'police');
+  G.passTurn(s); assert.strictEqual(s.game.turn, 'jack');
+});
+test('nextNight guarda el recorrido de la noche en el historial de Jack', () => {
+  const s = G.createGame();
+  G.startCrime(s, 80); G.logJackStep(s, 81, null); G.logJackStep(s, 82, null);
+  G.nextNight(s); // cierra la noche 1
+  assert.deepStrictEqual(s.jack.history[1], [80, 81, 82]);
+  assert.strictEqual(s.game.night, 2);
+});

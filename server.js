@@ -124,9 +124,18 @@ function createServer() {
     });
     socket.on('phase:startCrime', ({ circle }) => {
       if (roleOf() !== 'jack' || manualOnly()) return;
-      const n = B.node(circle); // #10: el crimen debe caer en un círculo real del tablero
-      if (!n || n.type !== 'circle') { socket.emit('ref:rejected', { reason: 'el crimen debe ser un círculo válido' }); return; }
-      G.startCrime(state, circle); sendStates();
+      // Modo libre: Jack escribe el número impreso del mapa (1..195). Se acepta
+      // ese número tal cual; solo se rechaza algo fuera de ese rango de casillas.
+      const c = Number(circle);
+      if (!Number.isInteger(c) || c < 1 || c > 199) { socket.emit('ref:rejected', { reason: 'escribe un número de casilla válido (1–195)' }); return; }
+      G.startCrime(state, c); sendStates();
+    });
+    // Pasar turno (modo libre, guiado y sin bloquear): alterna Jack <-> policía.
+    socket.on('phase:passTurn', () => {
+      if (state.game.mode !== 'manual') return;
+      const role = roleOf();
+      if (role !== 'jack' && role !== 'police') return;
+      G.passTurn(state); sendStates();
     });
     socket.on('phase:nextNight', () => {
       if (roleOf() !== 'jack') return; // #3: solo Jack avanza la noche

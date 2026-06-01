@@ -18,6 +18,12 @@ fetch('assets/board-graph.json')
   .catch(() => { /* el modo Aprendizaje quedará inactivo si no carga */ });
 
 const POLICE_COLORS = ['blue', 'green', 'red', 'yellow', 'purple'];
+// Tira de libretas de policía (una por color que controla el jugador).
+function policeNotebooksHtml() {
+  if (myRole !== 'police' || !myColors.length) return '';
+  const imgs = myColors.map((c) => '<img class="pnote" src="assets/elements/police-notebook-' + c + '.png" alt="Libreta ' + c + '"/>').join('');
+  return '<div class="pnotes">' + imgs + '</div>';
+}
 function tokenImg(t) {
   if (t.type === 'detective') {
     const n = parseInt(t.label, 10);
@@ -94,7 +100,7 @@ function renderStatus(s) {
   $('nightLabel').textContent = 'Noche ' + s.game.night + ' / 4';
   $('phaseLabel').textContent = modeTag + (phases[s.game.phase] || s.game.phase);
   // En Aprendizaje, durante la caza, se muestra de quién es el turno.
-  const turnTag = (s.game.mode === 'referee' && s.game.phase === 'hunt')
+  const turnTag = (s.game.phase === 'hunt')
     ? ' · Turno: ' + (s.game.turn === 'jack' ? 'Jack 🔪' : 'Policía 🔎') : '';
   $('movesLabel').textContent = 'Movimientos de Jack: ' + s.game.jackMoves + ' / 15' + turnTag;
 }
@@ -318,28 +324,23 @@ function renderJackPanel(s) {
   if (s.game.mode === 'referee') return renderJackPanelReferee(s);
   const p = $('jackPanel');
   const lair = s.jack.lair == null ? '(sin fijar)' : s.jack.lair;
-  const pathStr = (s.jack.path || []).map((x) =>
-    x.circle + (x.special ? '(' + (x.special === 'carriage' ? 'C' : 'A') + ')' : '')
-  ).join(' → ');
   p.innerHTML = `
-    <h3>Panel privado de Jack</h3>
-    <div class="row">
-      <input id="lairInput" type="number" placeholder="Guarida" />
-      <button id="setLairBtn">Fijar guarida</button>
+    <div class="movetrack">
+      <h3 class="mt-title">Jack's Move Track</h3>
+      <div class="row">
+        <input id="lairInput" type="number" placeholder="N° de tu guarida" />
+        <button id="setLairBtn">Fijar guarida</button>
+      </div>
+      <div class="mt-line">Guarida: <strong>${lair}</strong></div>
+      <div class="row"><input id="stepInput" type="number" placeholder="N° de la casilla a la que vas" /></div>
+      <div class="row">
+        <button id="stepNormal">Mover</button>
+        <button id="stepCarriage"><img src="assets/tokens/coach.png" class="mt-tok" alt=""/> ${s.jack.carriages}</button>
+        <button id="stepAlley"><img src="assets/tokens/alley.png" class="mt-tok" alt=""/> ${s.jack.alleys}</button>
+      </div>
+      <div class="mt-wrap">${moveTrackGrid(s)}</div>
+      <div class="row"><button id="reachedLairBtn">Llegué a mi guarida (fin de noche)</button></div>
     </div>
-    <div>Guarida: <strong>${lair}</strong></div>
-    <hr/>
-    <div class="row">
-      <input id="stepInput" type="number" placeholder="N° círculo" />
-    </div>
-    <div class="row">
-      <button id="stepNormal">Mover</button>
-      <button id="stepCarriage">Carruaje (${s.jack.carriages})</button>
-      <button id="stepAlley">Callejón (${s.jack.alleys})</button>
-    </div>
-    <div><small>Ruta de esta noche:</small><br/>${pathStr || '—'}</div>
-    <hr/>
-    <div class="row"><button id="reachedLairBtn">Llegué a mi guarida (fin de noche)</button></div>
   `;
   $('setLairBtn').onclick = () => {
     const c = parseInt($('lairInput').value, 10);
@@ -353,6 +354,33 @@ function renderJackPanel(s) {
   $('stepCarriage').onclick = () => step('carriage');
   $('stepAlley').onclick = () => step('alley');
   $('reachedLairBtn').onclick = () => socket.emit('jack:reachedLair');
+}
+
+// Rejilla de la libreta: 4 noches × (guarida + 15 movimientos). Llena la noche
+// en curso desde la ruta y las noches pasadas desde el historial.
+function moveTrackGrid(s) {
+  const lair = s.jack.lair;
+  const cur = s.game.night;
+  const curCircles = (s.jack.path || []).map((x) => x.circle); // [crimen, paso1, paso2, ...]
+  const hist = s.jack.history || {};
+  let h = '<table class="mt-grid"><thead><tr><th class="mt-cn">Noche</th><th class="mt-ch">🏠</th>';
+  for (let k = 1; k <= 15; k++) h += '<th>' + k + '</th>';
+  h += '</tr></thead><tbody>';
+  for (let n = 1; n <= 4; n++) {
+    const circles = (n === cur) ? curCircles : (hist[n] || []);
+    const active = (n === cur && s.game.phase === 'hunt');
+    const crime = circles[0];
+    h += '<tr class="' + (active ? 'mt-active' : '') + '">';
+    h += '<td class="mt-cn">N' + n + (crime != null ? '<small> c' + crime + '</small>' : '') + '</td>';
+    h += '<td class="mt-hideout">' + (lair != null ? lair : '') + '</td>';
+    for (let k = 1; k <= 15; k++) {
+      const v = circles[k];
+      const isNext = active && k === circles.length;
+      h += '<td class="' + (isNext ? 'mt-next' : '') + '">' + (v != null ? v : '') + '</td>';
+    }
+    h += '</tr>';
+  }
+  return h + '</tbody></table>';
 }
 
 function renderJackPanelReferee(s) {
@@ -380,7 +408,7 @@ function buildControls() {
   if (mode === 'referee') return buildRefControls();
   const c = $('controls');
   if (myRole === 'spectator') { c.innerHTML = '<em>Modo espectador</em>'; return; }
-  c.innerHTML = '<h3>Acciones</h3>';
+  c.innerHTML = '<h3>Acciones</h3>' + policeNotebooksHtml();
 
   // Crear fichas
   const addRow = document.createElement('div');
@@ -420,6 +448,13 @@ function buildControls() {
     };
   }
 
+  // Turno guiado (modo libre): botón para pasar el turno (no bloquea el arrastre).
+  const turnRow = document.createElement('div');
+  turnRow.className = 'row';
+  turnRow.innerHTML = '<button id="passTurnBtn">Pasar turno ⏭️</button>';
+  c.appendChild(turnRow);
+  document.getElementById('passTurnBtn').onclick = () => socket.emit('phase:passTurn');
+
   // Control de fases
   const phaseRow = document.createElement('div');
   phaseRow.className = 'row';
@@ -456,7 +491,7 @@ function buildControls() {
 
 function buildRefControls() {
   const c = $('controls');
-  c.innerHTML = '<h3>Acciones (Aprendizaje)</h3>';
+  c.innerHTML = '<h3>Acciones (Aprendizaje)</h3>' + policeNotebooksHtml();
   if (myRole === 'spectator') { c.innerHTML += '<em>Observas la partida.</em>'; return; }
   const setAct = (a, btn) => {
     refAction = a;
