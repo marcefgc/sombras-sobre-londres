@@ -101,9 +101,22 @@ function createServer() {
     // acciones por número no aplican — el modo Aprendizaje usa los eventos ref:*
     // que validan todo. Por eso se ignoran si la partida está en modo referee.
     const manualOnly = () => state.game.mode === 'referee';
-    socket.on('addToken', (token) => { if (manualOnly()) return; G.upsertToken(state, token); sendStates(); });
-    socket.on('moveToken', ({ id, x, y }) => { if (manualOnly()) return; G.moveToken(state, id, x, y); sendStates(); });
-    socket.on('removeToken', ({ id }) => { if (manualOnly()) return; G.removeToken(state, id); sendStates(); });
+    // Bloqueo por turnos (modo libre, durante la caza): cada bando solo actúa en
+    // su turno. Es la ÚNICA validación del modo libre; lo demás es manual.
+    function blockedByTurn() {
+      if (state.game.mode !== 'manual' || state.game.phase !== 'hunt') return false;
+      const role = roleOf();
+      if (role === 'jack') return state.game.turn !== 'jack';
+      if (role === 'police') return state.game.turn !== 'police';
+      return true; // espectador no mueve
+    }
+    function turnGate() {
+      if (blockedByTurn()) { socket.emit('turn:blocked'); return true; }
+      return false;
+    }
+    socket.on('addToken', (token) => { if (manualOnly() || turnGate()) return; G.upsertToken(state, token); sendStates(); });
+    socket.on('moveToken', ({ id, x, y }) => { if (manualOnly() || turnGate()) return; G.moveToken(state, id, x, y); sendStates(); });
+    socket.on('removeToken', ({ id }) => { if (manualOnly() || turnGate()) return; G.removeToken(state, id); sendStates(); });
 
     socket.on('jack:setLair', ({ circle }) => {
       if (roleOf() !== 'jack') return;
@@ -111,6 +124,7 @@ function createServer() {
     });
     socket.on('jack:logStep', ({ circle, special }) => {
       if (roleOf() !== 'jack' || manualOnly()) return;
+      if (turnGate()) return;
       if (G.movesExhausted(state)) { // #1: el servidor impone el límite de la noche
         state.log.push('La noche está agotada (15 movimientos). Declara el amanecer.');
         sendStates();
@@ -154,7 +168,8 @@ function createServer() {
       if (roleOf() !== 'jack') return; // #4: solo Jack puede reiniciar la partida
       const fresh = G.createGame();
       fresh.players = state.players;
-      fresh.roleClaims = state.roleClaims; // conservar reservas de rol de los conectados
+      fresh.jackName = state.jackName;        // conservar reservas (Jack y colores)
+      fresh.colorOwners = state.colorOwners;
       Object.assign(state, fresh);
       sendStates();
     });
@@ -194,7 +209,7 @@ function createServer() {
     });
 
     socket.on('clue:ask', ({ circle }) => {
-      if (manualOnly()) return; // en referee se usa ref:search (valida adyacencia)
+      if (manualOnly() || turnGate()) return; // en referee se usa ref:search; en libre, solo en turno de policía
       const passed = G.checkClue(state, circle);
       state.log.push('Pista en ' + circle + ': ' + (passed ? 'SÍ' : 'no'));
       io.emit('clue:result', { circle, passed });
@@ -203,7 +218,7 @@ function createServer() {
       sendStates();
     });
     socket.on('arrest', ({ circle }) => {
-      if (manualOnly()) return; // en referee se usa ref:arrest (valida adyacencia)
+      if (manualOnly() || turnGate()) return; // en referee se usa ref:arrest; en libre, solo en turno de policía
       const caught = G.checkArrest(state, circle);
       state.log.push('¡Arresto en ' + circle + '! ' + (caught ? 'ATRAPADO' : 'fallido'));
       io.emit('arrest:result', { circle, caught });

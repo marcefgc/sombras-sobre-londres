@@ -198,8 +198,23 @@ function renderTokens(s) {
   }
 }
 
+// ¿Está bloqueado mi movimiento por no ser mi turno? (modo libre, durante la caza)
+function manualTurnBlocked() {
+  if (!lastState || lastState.game.mode !== 'manual' || lastState.game.phase !== 'hunt') return false;
+  const t = lastState.game.turn;
+  if (myRole === 'jack') return t !== 'jack';
+  if (myRole === 'police') return t !== 'police';
+  return true;
+}
+function showTurnBlocked() {
+  const li = document.createElement('li');
+  li.textContent = '⛔ No es tu turno. Pulsa "Pasar turno" cuando termine el otro bando.';
+  $('log').prepend(li);
+}
+
 function makeDraggable(el, id) {
   el.onpointerdown = (e) => {
+    if (manualTurnBlocked()) { showTurnBlocked(); return; } // no se arrastra fuera de turno
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
     draggingId = id;
@@ -567,6 +582,8 @@ socket.on('ref:rejected', ({ reason }) => {
 
 // El servidor rechazó la entrada (rol ocupado, nombre vacío o rol reservado por
 // otro jugador). Volvemos al lobby para que el jugador elija otra cosa.
+socket.on('turn:blocked', () => { showTurnBlocked(); });
+
 socket.on('join:rejected', ({ reason }) => {
   alert('No se pudo entrar: ' + (reason || 'rol no disponible') + '. Prueba con otro rol o nombre.');
   $('game').hidden = true;

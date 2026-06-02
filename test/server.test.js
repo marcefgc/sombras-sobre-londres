@@ -373,3 +373,30 @@ test('B2: phase:nextNight se rechaza durante la caza (no se salta una noche perd
   jack.close();
   await new Promise((r) => server.close(r));
 });
+
+test('modo libre: bloquea las acciones de la policía durante el turno de Jack', async () => {
+  const { server } = createServer();
+  await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const jack = Client(`http://localhost:${port}`);
+  const det = Client(`http://localhost:${port}`);
+  const jackW = stateWaiter(jack), detW = stateWaiter(det);
+  jack.emit('join', { name: 'J', role: 'jack' });
+  det.emit('join', { name: 'D', role: 'police', colors: ['blue'] });
+  await jackW.wait(); await detW.wait();
+  jack.emit('phase:startCrime', { circle: 50 }); // manual; turno de Jack, fase hunt
+  await detW.wait((s) => s.game.phase === 'hunt' && s.game.turn === 'jack');
+  // Turno de Jack: la policía intenta mover una ficha -> bloqueado.
+  const blocked = await new Promise((r) => { det.once('turn:blocked', () => r(true)); det.emit('addToken', { id: 'p1', type: 'detective', x: 10, y: 10, label: '1' }); });
+  assert.strictEqual(blocked, true);
+  await new Promise((r) => setTimeout(r, 30));
+  assert.ok(!detW.latest.tokens.find((t) => t.id === 'p1'));
+  // Jack pasa el turno -> la policía ya puede.
+  jack.emit('phase:passTurn');
+  await detW.wait((s) => s.game.turn === 'police');
+  det.emit('addToken', { id: 'p1', type: 'detective', x: 10, y: 10, label: '1' });
+  const v = await detW.wait((s) => s.tokens.find((t) => t.id === 'p1'));
+  assert.ok(v.tokens.find((t) => t.id === 'p1'));
+  jack.close(); det.close();
+  await new Promise((r) => server.close(r));
+});
